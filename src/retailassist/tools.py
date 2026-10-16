@@ -3,7 +3,7 @@
 import json
 from anthropic import beta_tool
 
-from .rag import get_policy_index
+from .rag import PolicyHit, get_policy_index
 from .store import ORDERS, PRODUCTS
 from .tickets import TicketCategory, ticket_store
 
@@ -70,18 +70,15 @@ def get_order_status(order_id: str, email: str) -> str:
 
 
 @beta_tool
-def search_store_policies(query: str) -> list[dict]:
+def search_store_policies(query: str) -> list[PolicyHit]:
     """Search the store's returns, refund, and shipping policies. Use this for questions about returns,
     refunds, exchanges, cancellations, damaged or missing packages, shipping options and costs,
-    delivery times, and tracking. Results support citations.
+    delivery times, and tracking. Results can be cited.
 
     Args:
         query: What to look up, in plain words, e.g. "how long do refunds take".
     """
-    hits = get_policy_index().search(query)
-    if not hits:
-        return [{"type": "text", "text": "No policy sections matched that search."}]
-    return [hit.to_search_result() for hit in hits]
+    return get_policy_index().search(query)
 
 
 @beta_tool

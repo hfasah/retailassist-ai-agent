@@ -11,11 +11,12 @@ import uuid
 from functools import lru_cache
 from typing import Annotated
 
-import anthropic
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from .graph import RetailAssistant, sqlite_checkpointer
+from .graph import ProviderMismatchError, RetailAssistant, sqlite_checkpointer
+from .llm import LLM, LLMAuthError, LLMRateLimitError, LLMUnavailableError
+from .llm import get_llm as llm_for_provider
 from .rag import get_policy_index
 from .store import ORDERS, PRODUCTS
 from .tickets import TicketCategory, TicketStatus, ticket_store
@@ -29,15 +30,8 @@ app = FastAPI(title="RetailAssist API", version="0.1.0")
 # --- Dependencies ---------------------------------------------------------------------------------
 
 @lru_cache
-def _make_client() -> anthropic.Anthropic:
-    return anthropic.Anthropic()
-
-
-def get_client() -> anthropic.Anthropic:
-    try:
-        return _make_client()
-    except anthropic.CredentialsError:
-        raise HTTPException(500, "The server's Anthropic credentials couldn't be loaded. Set ANTHROPIC_API_KEY.")
+def get_llm() -> LLM:
+    return llm_for_provider()
 
 
 @lru_cache
@@ -45,8 +39,8 @@ def _checkpointer():
     return sqlite_checkpointer()
 
 
-def get_assistant(client: Annotated[anthropic.Anthropic, Depends(get_client)]) -> RetailAssistant:
-    return RetailAssistant(client, _checkpointer())
+def get_assistant(llm: Annotated[LLM, Depends(get_llm)]) -> RetailAssistant:
+    return RetailAssistant(llm, _checkpointer())
 
 
 def require_staff_key(x_api_key: Annotated[str | None, Header()] = None) -> None:
@@ -117,8 +111,9 @@ class Ticket(BaseModel):
 # --- Endpoints ------------------------------------------------------------------------------------
 
 @app.get("/health")
-def health() -> dict:
-    return {"status": "ok", "products": len(PRODUCTS), "orders": len(ORDERS), "policy_chunks": len(get_policy_index())}
+def health(llm: Annotated[LLM, Depends(get_llm)]) -> dict:
+    return {"status": "ok", "provider": llm.name, "model": llm.model, "products": len(PRODUCTS), "orders": len(ORDERS),
+            "policy_chunks": len(get_policy_index())}
 
 
 @app.post("/chat")
@@ -131,19 +126,14 @@ def chat(request: ChatRequest, assistant: Annotated[RetailAssistant, Depends(get
     with _session_lock(session_id):  # one message at a time per conversation
         try:
             result = assistant.ask(session_id, request.message)
-        except anthropic.AuthenticationError:
-            raise HTTPException(500, "The server's Anthropic API key is invalid.")
-        except anthropic.CredentialsError:
-            raise HTTPException(500, "The server's Anthropic credentials couldn't be loaded. Set ANTHROPIC_API_KEY.")
-        except TypeError as e:
-            # The SDK raises TypeError before sending anything when no credentials are configured.
-            if "authentication method" not in str(e):
-                raise
-            raise HTTPException(500, "The server has no Anthropic API key. Set ANTHROPIC_API_KEY.")
-        except anthropic.RateLimitError:
+        except LLMAuthError as e:
+            raise HTTPException(500, f"The server's model credentials aren't set up: {e}")
+        except LLMRateLimitError:
             raise HTTPException(503, "The assistant is busy. Please try again in a moment.")
-        except (anthropic.APIConnectionError, anthropic.APIStatusError):
+        except LLMUnavailableError:
             raise HTTPException(502, "The assistant couldn't be reached. Please try again.")
+        except ProviderMismatchError as e:
+            raise HTTPException(409, f"{e} Start a new conversation by omitting session_id.")
     return ChatResponse(session_id=session_id, **result)
 
 

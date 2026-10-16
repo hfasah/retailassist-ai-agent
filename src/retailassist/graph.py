@@ -7,12 +7,14 @@ Each customer message runs through:
                                  v  |
                               tool_call
 
-- classify:   Claude labels the intent and pulls out order number, email, and product keywords.
+- classify:   the model labels the intent and pulls out order number, email, and product keywords.
 - retrieve:   semantic search over the policy documents (vector database), plus matching products and
-              the customer's order. Policy sections go in as search_result blocks so Claude can cite them.
-- call_model: Claude answers, and may ask for tools.
+              the customer's order, attached to the customer's message as citable sources.
+- call_model: the model answers, and may ask for tools.
 - tool_call:  runs the requested tools and sends the results back to call_model.
-- respond:    turns Claude's last reply into the text for the customer, with numbered source citations.
+- respond:    turns the model's last reply into the text for the customer, with numbered source citations.
+
+The model provider (Gemini or Claude) is chosen with RETAILASSIST_LLM_PROVIDER; see llm/.
 
 Conversation state is saved by a LangGraph checkpointer (SQLite by default), keyed by thread ID,
 so a conversation picks up where it left off even after a restart.
@@ -23,22 +25,20 @@ import operator
 import os
 import re
 import sqlite3
+from dataclasses import asdict
 from typing import Annotated, Literal, TypedDict
 
-import anthropic
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
 
+from .llm import LLM, ToolCall, ToolResult, get_llm
 from .rag import PolicyIndex, get_policy_index
 from .store import DATA_DIR, PRODUCTS
 from .tools import ALL_TOOLS, find_order
 
-MODEL = "claude-opus-5-5"
 MAX_TOOL_ROUNDS = 8
-# If a safety classifier declines, retry on Anthropic's recommended fallback model.
-FALLBACK = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
 
 SYSTEM_PROMPT = """You are RetailAssist, a friendly shopping and support assistant for an outdoor gear store.
 
@@ -49,8 +49,8 @@ the order's dates and status to say how the policy applies to that customer. If 
 don't cover a question, say so rather than filling the gap yourself. To look up an order, ask for the \
 order number and the email it was placed with. Keep replies short and conversational.
 
-Some customer messages come with policy search results and a <retrieved_context> block that the system \
-looked up automatically for that message. Use them when they're relevant, and use your tools (including \
+Some customer messages come with policy sections and a <retrieved_context> block that the system looked \
+up automatically for that message. Use them when they're relevant, and use your tools (including \
 search_store_policies) for anything they don't cover.
 
 You can't start returns, issue refunds, cancel orders, or change addresses yourself. When a customer \
@@ -81,7 +81,8 @@ class Classification(BaseModel):
 
 
 class ConversationState(TypedDict, total=False):
-    # Saved across turns. Messages are only ever appended, never edited.
+    # Saved across turns. Messages are in the provider's own format and are only ever appended.
+    provider: str
     messages: Annotated[list[dict], operator.add]
     customer_inputs: Annotated[list[str], operator.add]
     known_order_id: str | None
@@ -93,10 +94,15 @@ class ConversationState(TypedDict, total=False):
     policy_sources: list[str]
     context: str
     tool_rounds: int
+    pending_tool_calls: list[dict]
     stop_reason: str | None
     draft: str
-    citations: list[dict]
+    citations: list[dict] | None
     reply: str
+
+
+class ProviderMismatchError(Exception):
+    """A saved conversation was started with a different model provider than the one running now."""
 
 
 # --- Retrieval helpers ----------------------------------------------------------------------------
@@ -128,13 +134,48 @@ def search_catalog(query: str, limit: int = 5) -> list[dict]:
     return [product for _, product in scored[:limit]]
 
 
+# --- Citations from [section-id] markers ----------------------------------------------------------
+
+_SECTION_ID = r"[a-z0-9-]+#[a-z0-9-]+"
+_MARKER = re.compile(rf"\s?\[({_SECTION_ID}(?:\s*,\s*{_SECTION_ID})*)\]")
+
+
+def citations_from_markers(text: str, policy_index: PolicyIndex) -> tuple[str, list[dict]]:
+    """Replace [section-id] markers with numbered [n] markers, keeping only IDs that exist in the index.
+
+    Used for providers without native citations. Unknown IDs are dropped rather than shown.
+    """
+    sources: dict[str, dict] = {}
+
+    def replace(match: re.Match) -> str:
+        numbers = []
+        for section_id in re.split(r"\s*,\s*", match.group(1)):
+            chunk = policy_index.chunk(section_id)
+            if chunk is None:
+                continue
+            source = sources.setdefault(chunk.id, {"number": len(sources) + 1, "title": chunk.title,
+                                                   "source": chunk.source, "quotes": []})
+            if source["number"] not in numbers:
+                numbers.append(source["number"])
+        return "".join(f"[{n}]" for n in numbers)
+
+    return _MARKER.sub(replace, text).strip(), list(sources.values())
+
+
 # --- Graph ----------------------------------------------------------------------------------------
 
-def build_graph(client: anthropic.Anthropic, checkpointer: BaseCheckpointSaver | None = None,
-                policy_index: PolicyIndex | None = None):
+def build_graph(llm: LLM, checkpointer: BaseCheckpointSaver | None = None, policy_index: PolicyIndex | None = None):
     policy_index = policy_index or get_policy_index()
     tools_by_name = {tool.name: tool for tool in ALL_TOOLS}
-    tool_definitions = [tool.to_dict() for tool in ALL_TOOLS]
+    system_prompt = SYSTEM_PROMPT + llm.instructions
+
+    def start_turn(state: ConversationState) -> dict:
+        provider = state.get("provider")
+        if provider and provider != llm.name:
+            raise ProviderMismatchError(
+                f"This conversation was started with {provider}, but the server is running {llm.name}.")
+        return {"provider": llm.name, "customer_inputs": [state["user_input"]], "tool_rounds": 0,
+                "pending_tool_calls": [], "stop_reason": None, "draft": "", "citations": [], "policy_sources": []}
 
     def classify(state: ConversationState) -> dict:
         recent = state.get("customer_inputs", [])[-3:]
@@ -142,16 +183,7 @@ def build_graph(client: anthropic.Anthropic, checkpointer: BaseCheckpointSaver |
         prompt = (f"Earlier customer messages: {json.dumps(recent[:-1])}\n"
                   f"Details already known: {json.dumps(known)}\n\n"
                   f"Newest message: {state['user_input']}")
-        response = client.beta.messages.parse(
-            model=MODEL,
-            max_tokens=4000,
-            system=CLASSIFY_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-            output_format=Classification,
-            output_config={"effort": "low"},
-            **FALLBACK,
-        )
-        result = response.parsed_output or Classification(intent="other")
+        result = llm.classify(CLASSIFY_PROMPT, prompt, Classification) or Classification(intent="other")
         update: dict = {"intent": result.intent, "product_query": result.product_query}
         # Remember order numbers and emails for later turns.
         if result.order_id:
@@ -181,30 +213,15 @@ def build_graph(client: anthropic.Anthropic, checkpointer: BaseCheckpointSaver |
                 parts.append(f"No order matches {state['known_order_id']} and {state['known_email']}.")
 
         context = "\n\n".join(parts)
-        content: list[dict] = [hit.to_search_result() for hit in policy_hits]
-        if context:
-            content.append({"type": "text", "text": f"<retrieved_context>\n{context}\n</retrieved_context>"})
-        content.append({"type": "text", "text": user_input})
         return {"context": context, "policy_sources": [hit.chunk.source for hit in policy_hits],
-                "messages": [{"role": "user", "content": content}]}
+                "messages": [llm.user_message(user_input, context, policy_hits)]}
 
     def call_model(state: ConversationState) -> dict:
-        response = client.beta.messages.create(
-            model=MODEL,
-            max_tokens=16000,
-            system=SYSTEM_PROMPT,
-            tools=tool_definitions,
-            messages=state["messages"],
-            output_config={"effort": "medium"},
-            **FALLBACK,
-        )
-        draft, citations = _text_with_citations(response.content)
-        update: dict = {"stop_reason": response.stop_reason, "draft": draft, "citations": citations}
-        # A refused or empty reply can't go back into the history; the API rejects empty assistant turns.
-        if response.stop_reason != "refusal" and response.content:
-            # Plain dicts, exactly as the API returned them, so the checkpointer can save them.
-            content = [block.model_dump(mode="json", exclude_unset=True) for block in response.content]
-            update["messages"] = [{"role": "assistant", "content": content}]
+        turn = llm.respond(system_prompt, state["messages"], ALL_TOOLS)
+        update: dict = {"stop_reason": turn.stop_reason, "draft": turn.text, "citations": turn.citations,
+                        "pending_tool_calls": [asdict(call) for call in turn.tool_calls]}
+        if turn.message is not None:
+            update["messages"] = [turn.message]
         return update
 
     def route_after_model(state: ConversationState) -> Literal["tool_call", "respond"]:
@@ -214,38 +231,36 @@ def build_graph(client: anthropic.Anthropic, checkpointer: BaseCheckpointSaver |
 
     def tool_call(state: ConversationState) -> dict:
         results = []
-        for block in _unanswered_tool_uses(state["messages"]):
-            tool = tools_by_name.get(block["name"])
+        for call in (ToolCall(**c) for c in state["pending_tool_calls"]):
+            tool = tools_by_name.get(call.name)
             try:
                 if tool is None:
-                    raise ValueError(f"Unknown tool: {block['name']}")
-                output = tool.call(block["input"])
-                results.append({"type": "tool_result", "tool_use_id": block["id"], "content": output})
-            except Exception as e:  # report tool failures to Claude instead of crashing the turn
-                results.append({"type": "tool_result", "tool_use_id": block["id"], "content": str(e), "is_error": True})
-        return {"messages": [{"role": "user", "content": results}], "tool_rounds": state.get("tool_rounds", 0) + 1}
+                    raise ValueError(f"Unknown tool: {call.name}")
+                results.append(ToolResult(call, tool.call(call.args)))
+            except Exception as e:  # report tool failures to the model instead of crashing the turn
+                results.append(ToolResult(call, str(e), is_error=True))
+        return {"messages": [llm.tool_results_message(results)], "pending_tool_calls": [],
+                "tool_rounds": state.get("tool_rounds", 0) + 1}
 
     def respond(state: ConversationState) -> dict:
-        update: dict = {}
+        update: dict = {"pending_tool_calls": []}
         # If we stopped with tool calls still pending (tool-round limit or max_tokens), close them out
         # so the next turn's history is valid.
-        pending = _unanswered_tool_uses(state["messages"])
-        if pending:
-            update["messages"] = [{"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": b["id"], "content": "Not run: tool limit reached.", "is_error": True}
-                for b in pending]}]
+        pending = [ToolCall(**c) for c in state.get("pending_tool_calls", [])]
+        if pending and state["stop_reason"] != "refusal":
+            update["messages"] = [llm.tool_results_message(
+                [ToolResult(call, "Not run: tool limit reached.", is_error=True) for call in pending])]
 
         if state["stop_reason"] == "refusal":
             update.update(reply="Sorry, I can't help with that request.", citations=[])
-        elif state.get("draft"):
-            update["reply"] = state["draft"]
+        elif state.get("draft") and state["stop_reason"] != "error":
+            if state.get("citations") is None:  # provider has no native citations
+                update["reply"], update["citations"] = citations_from_markers(state["draft"], policy_index)
+            else:
+                update["reply"] = state["draft"]
         else:
             update.update(reply="Sorry, I wasn't able to finish that. Could you try asking another way?", citations=[])
         return update
-
-    def start_turn(state: ConversationState) -> dict:
-        return {"customer_inputs": [state["user_input"]], "tool_rounds": 0, "stop_reason": None, "draft": "",
-                "citations": [], "policy_sources": []}
 
     builder = StateGraph(ConversationState)
     builder.add_node("start_turn", start_turn)
@@ -264,44 +279,6 @@ def build_graph(client: anthropic.Anthropic, checkpointer: BaseCheckpointSaver |
     return builder.compile(checkpointer=checkpointer)
 
 
-def _text_with_citations(content) -> tuple[str, list[dict]]:
-    """Join Claude's text blocks, adding [1]-style markers where it cited a policy passage.
-
-    Returns the text and the list of sources, numbered in the order they're first cited.
-    """
-    sources: dict[str, dict] = {}
-    text = ""
-    for block in content:
-        if block.type != "text":
-            continue
-        text += block.text
-        markers = []
-        for citation in block.citations or []:
-            if citation.type != "search_result_location":
-                continue
-            source = sources.setdefault(citation.source, {
-                "number": len(sources) + 1, "title": citation.title, "source": citation.source, "quotes": []})
-            if citation.cited_text not in source["quotes"]:
-                source["quotes"].append(citation.cited_text)
-            if source["number"] not in markers:
-                markers.append(source["number"])
-        if markers:
-            # Put markers before any trailing whitespace, so they sit right after the cited sentence.
-            stripped = text.rstrip()
-            text = stripped + "".join(f"[{n}]" for n in markers) + text[len(stripped):]
-    return text.strip(), list(sources.values())
-
-
-def _unanswered_tool_uses(messages: list[dict]) -> list[dict]:
-    """Tool calls in the last message, if it's an assistant message (so no results have been sent yet)."""
-    if not messages or messages[-1]["role"] != "assistant":
-        return []
-    content = messages[-1]["content"]
-    if isinstance(content, str):
-        return []
-    return [block for block in content if block.get("type") == "tool_use"]
-
-
 # --- Public interface -----------------------------------------------------------------------------
 
 def sqlite_checkpointer(path: str | os.PathLike | None = None) -> SqliteSaver:
@@ -312,15 +289,16 @@ def sqlite_checkpointer(path: str | os.PathLike | None = None) -> SqliteSaver:
 class RetailAssistant:
     """Runs customer messages through the graph, saving each conversation under its thread ID."""
 
-    def __init__(self, client: anthropic.Anthropic | None = None, checkpointer: BaseCheckpointSaver | None = None,
+    def __init__(self, llm: LLM | None = None, checkpointer: BaseCheckpointSaver | None = None,
                  policy_index: PolicyIndex | None = None):
-        self.graph = build_graph(client or anthropic.Anthropic(), checkpointer or sqlite_checkpointer(), policy_index)
+        self.llm = llm or get_llm()
+        self.graph = build_graph(self.llm, checkpointer or sqlite_checkpointer(), policy_index)
 
     def ask(self, thread_id: str, user_text: str) -> dict:
         """Send one customer message. Returns the reply, the intent it was classified as, and the policy
         sources the reply cites (numbered to match the [n] markers in the reply)."""
         state = self.graph.invoke({"user_input": user_text}, {"configurable": {"thread_id": thread_id}})
-        return {"reply": state["reply"], "intent": state["intent"], "citations": state.get("citations", [])}
+        return {"reply": state["reply"], "intent": state["intent"], "citations": state.get("citations") or []}
 
     def has_conversation(self, thread_id: str) -> bool:
         return bool(self.graph.get_state({"configurable": {"thread_id": thread_id}}).values)

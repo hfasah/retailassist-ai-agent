@@ -1,17 +1,17 @@
 # RetailAssist AI Agent
 
-An AI shopping and customer-support agent for retail, built on [Claude](https://www.anthropic.com/claude). It chats with customers, searches the product catalog, checks stock and prices, and looks up order status.
+An AI shopping and customer-support agent for retail, built on [Gemini](https://ai.google.dev/) or [Claude](https://www.anthropic.com/claude). It chats with customers, searches the product catalog, checks stock and prices, and looks up order status.
 
 ## Getting started
 
-Requires Python 3.10+ and an [Anthropic API key](https://console.anthropic.com/).
+Requires Python 3.10+ and a [Gemini API key](https://aistudio.google.com/apikey) (or an [Anthropic API key](https://console.anthropic.com/) to use Claude).
 
 ```bash
 git clone https://github.com/hfasah/retailassist-ai-agent.git
 cd retailassist-ai-agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-export ANTHROPIC_API_KEY=sk-ant-...   # or put it in .env
+export GEMINI_API_KEY=...             # or put it in .env (see .env.example)
 retailassist          # chat in the terminal (prints a session ID; resume with --session <id>)
 ```
 
@@ -26,7 +26,7 @@ Interactive docs are at http://localhost:8000/docs.
 
 | Endpoint | Who | What it does |
 |---|---|---|
-| `GET /health` | Anyone | Health check, with product, order, and indexed policy-section counts |
+| `GET /health` | Anyone | Health check: provider and model, plus product, order, and indexed policy-section counts |
 | `POST /chat` | Customers | Send `{"message": "..."}` and get the agent's reply plus a `session_id`. Send the `session_id` back to continue the conversation |
 | `GET /orders/{id}?email=...` | Customers | Order details. The email must match the order, otherwise 404 |
 | `POST /tickets` | Customers | Open a support ticket: `email`, `category`, `message`, and an optional `order_id` |
@@ -74,13 +74,13 @@ start_turn → classify → retrieve → call_model ⇄ tool_call
 
 | Node | What it does |
 |---|---|
-| `classify` | Claude labels the message (`product_question`, `order_status`, `policy_question`, `support_request`, or `other`) and pulls out any order number, email, and product keywords |
+| `classify` | The model labels the message (`product_question`, `order_status`, `policy_question`, `support_request`, or `other`) and pulls out any order number, email, and product keywords |
 | `retrieve` | Semantic search over the policy documents, plus matching products and the customer's order (no model call). Policy sections are attached as citable search results |
-| `call_model` | Claude writes the answer, and can ask for tools |
-| `tool_call` | Runs the tools Claude asked for and sends the results back (up to 8 rounds per message) |
-| `respond` | Produces the final reply with numbered `[1]` citation markers and a list of sources, or a polite message if Claude declines |
+| `call_model` | The model writes the answer, and can ask for tools |
+| `tool_call` | Runs the tools the model asked for and sends the results back (up to 8 rounds per message) |
+| `respond` | Produces the final reply with numbered `[1]` citation markers and a list of sources, or a polite message if the model declines |
 
-**Policy search with citations.** The policy documents are split into one chunk per section, embedded with a small local model (`all-MiniLM-L6-v2`, about 80 MB, downloaded on first run), and stored in a [Chroma](https://www.trychroma.com/) vector database in `data/vectordb/`. The index rebuilds itself when the policy files change. Search matches by meaning, so "how long until my money comes back" finds the Refunds section with no shared keywords. Results go to Claude as [search result blocks](https://platform.claude.com/docs/en/build-with-claude/search-results), so the API itself attaches citations to the exact passages Claude used. Replies come back like:
+**Policy search with citations.** The policy documents are split into one chunk per section, embedded with a small local model (`all-MiniLM-L6-v2`, about 80 MB, downloaded on first run), and stored in a [Chroma](https://www.trychroma.com/) vector database in `data/vectordb/`. The index rebuilds itself when the policy files change. Search matches by meaning, so "how long until my money comes back" finds the Refunds section with no shared keywords. How citations work depends on the provider (see below). Replies come back like:
 
 ```
 Refunds go back to your original payment method[1] and usually show up within 5–10 business days.
@@ -89,9 +89,18 @@ Refunds go back to your original payment method[1] and usually show up within 5�
 
 **Saved conversations.** A LangGraph SQLite checkpointer saves each conversation (`data/conversations.db` by default) under its session ID, so conversations survive restarts. Order numbers and emails a customer mentions are remembered for later messages in the same conversation. The conversation history is only ever appended to, never edited.
 
-Claude is called with the Anthropic SDK directly inside the nodes, using Claude Opus 5.5. If a safety classifier declines a request, it's retried automatically on a fallback model Anthropic picks.
+**Model providers.** The graph, tools, retrieval, and API are shared; only `src/retailassist/llm/` differs per provider. Pick one with `RETAILASSIST_LLM_PROVIDER`:
 
-**Tools Claude can call:**
+| | Gemini (default) | Claude |
+|---|---|---|
+| Model | `gemini-3.8-flash` (`GEMINI_MODEL` to change, e.g. `gemini-4-argon`) | `claude-opus-5-5` (`CLAUDE_MODEL` to change) |
+| Credentials | `GEMINI_API_KEY`, or Vertex AI (`GOOGLE_GENAI_USE_VERTEXAI=true` + project and location; on Cloud Run the service account is used) | `ANTHROPIC_API_KEY` |
+| Citations | Policy sections are labeled with IDs and Gemini is asked to cite them as `[refund-policy#refunds]`. The server checks every ID against the policy index, drops any that don't exist, and numbers the rest. Sources are section-level, so `quotes` is empty | Sections go in as [search result blocks](https://platform.claude.com/docs/en/build-with-claude/search-results), so the API attaches citations to the exact passages used and `quotes` holds them |
+| If the model declines | Polite refusal message | Retried automatically on a fallback model Anthropic picks, then a polite refusal |
+
+Each conversation remembers which provider it started with. Continuing it under the other provider returns 409 (the API) or an error (the CLI), because each provider's saved history includes data only it can read back. Start a new conversation instead.
+
+**Tools the model can call:**
 
 | Tool | What it does |
 |---|---|
@@ -119,6 +128,7 @@ Customer emails use the reserved `example.com` domain. The products and orders c
 ```
 src/retailassist/
 ├── graph.py   # LangGraph agent: nodes, prompts, retrieval, saved state
+├── llm/       # model providers: gemini.py, claude.py, and the shared interface in base.py
 ├── rag.py     # policy vector index (Chroma) and semantic search
 ├── agent.py   # terminal chat
 ├── api.py     # FastAPI app
@@ -127,7 +137,7 @@ src/retailassist/
 └── store.py   # loads the data in data/
 data/          # fictional catalog, orders, and policies (plus local databases, not in git)
 scripts/       # generate_data.py rebuilds the catalog and orders
-tests/         # tests for the graph, tools, data, and API (no API key needed)
+tests/         # tests for the graph, tools, data, and API, run against fake Gemini and Claude (no API keys needed)
 ```
 
 ## Running tests

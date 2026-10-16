@@ -45,12 +45,10 @@ def test_order_totals_add_up():
         assert order["total"] == round(subtotal + order["shipping_cost"] + order["tax"], 2)
 
 
-def test_search_store_policies_returns_citable_results():
-    results = search_store_policies.call({"query": "is shipping free"})
-    assert results[0]["type"] == "search_result"
-    assert results[0]["title"] == "Shipping FAQ > What are the shipping options and costs?"
-    assert results[0]["citations"] == {"enabled": True}
-    assert search_store_policies.call({"query": "what is the capital of France"})[0]["type"] == "text"
+def test_search_store_policies():
+    hits = search_store_policies.call({"query": "is shipping free"})
+    assert hits[0].chunk.title == "Shipping FAQ > What are the shipping options and costs?"
+    assert search_store_policies.call({"query": "what is the capital of France"}) == []
 
 
 def test_create_support_ticket():

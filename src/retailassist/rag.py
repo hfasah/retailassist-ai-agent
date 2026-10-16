@@ -140,6 +140,9 @@ class PolicyIndex:
                 hits.append(PolicyHit(self._chunks[chunk_id], distance))
         return hits
 
+    def chunk(self, chunk_id: str) -> PolicyChunk | None:
+        return self._chunks.get(chunk_id)
+
     def __len__(self) -> int:
         return self._collection.count()
 
