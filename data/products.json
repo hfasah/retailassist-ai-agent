@@ -1,0 +1,272 @@
+[
+  {
+    "sku": "SKU-1001",
+    "name": "Trailblazer Waterproof Hiking Boots",
+    "category": "footwear",
+    "price": 129.99,
+    "stock": 3,
+    "description": "Waterproof leather hiking boots with a grippy rubber sole.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-1002",
+    "name": "CloudStep Running Shoes",
+    "category": "footwear",
+    "price": 89.99,
+    "stock": 0,
+    "description": "Lightweight, cushioned running shoes for daily training.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-1003",
+    "name": "Ridgeline Trail Runners",
+    "category": "footwear",
+    "price": 119.0,
+    "stock": 12,
+    "description": "Trail running shoes with a rock plate and aggressive lugs.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-1004",
+    "name": "Basecamp Camp Sandals",
+    "category": "footwear",
+    "price": 49.95,
+    "stock": 8,
+    "description": "Quick-drying sandals with adjustable straps for camp and water.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-1005",
+    "name": "Frostline Insulated Winter Boots",
+    "category": "footwear",
+    "price": 159.0,
+    "stock": 8,
+    "description": "Insulated, waterproof boots rated to -25°F.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-2001",
+    "name": "Summit 30L Daypack",
+    "category": "bags",
+    "price": 64.5,
+    "stock": 5,
+    "description": "30-litre backpack with a padded laptop sleeve and rain cover.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-2002",
+    "name": "Expedition 65L Backpacking Pack",
+    "category": "bags",
+    "price": 229.0,
+    "stock": 3,
+    "description": "Adjustable-torso pack with a load-lifting hip belt for multi-day trips.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-2003",
+    "name": "Drift 20L Dry Bag",
+    "category": "bags",
+    "price": 29.99,
+    "stock": 90,
+    "description": "Roll-top waterproof bag for paddling and wet weather.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-2004",
+    "name": "Trailhead Hip Pack",
+    "category": "bags",
+    "price": 34.0,
+    "stock": 3,
+    "description": "Two-litre hip pack with a bottle holster.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-3001",
+    "name": "Merino Wool Hiking Socks (3-pack)",
+    "category": "accessories",
+    "price": 24.0,
+    "stock": 35,
+    "description": "Breathable merino socks that resist odour on long hikes.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-3002",
+    "name": "Polarized Trail Sunglasses",
+    "category": "accessories",
+    "price": 59.0,
+    "stock": 0,
+    "description": "Lightweight polarized sunglasses with UV400 protection.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-3003",
+    "name": "Packable Sun Hat",
+    "category": "accessories",
+    "price": 27.5,
+    "stock": 0,
+    "description": "Wide-brim UPF 50+ hat that folds into a pocket.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-3004",
+    "name": "Trekking Poles (pair)",
+    "category": "accessories",
+    "price": 79.0,
+    "stock": 3,
+    "description": "Collapsible aluminium poles with cork grips.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-3005",
+    "name": "Clearance Fleece Gloves",
+    "category": "accessories",
+    "price": 12.0,
+    "stock": 8,
+    "description": "Warm fleece gloves with touchscreen fingertips. Final sale.",
+    "final_sale": true
+  },
+  {
+    "sku": "SKU-4001",
+    "name": "Stormshield Rain Jacket",
+    "category": "apparel",
+    "price": 149.0,
+    "stock": 8,
+    "description": "Three-layer waterproof, breathable shell with pit zips.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-4002",
+    "name": "Ember Down Jacket",
+    "category": "apparel",
+    "price": 199.0,
+    "stock": 90,
+    "description": "800-fill down jacket that packs into its own pocket.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-4003",
+    "name": "Ridge Softshell Pants",
+    "category": "apparel",
+    "price": 89.0,
+    "stock": 0,
+    "description": "Stretchy, water-resistant hiking pants with zip pockets.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-4004",
+    "name": "Trail Tech T-Shirt",
+    "category": "apparel",
+    "price": 32.0,
+    "stock": 90,
+    "description": "Moisture-wicking short-sleeve shirt with odour control.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-4005",
+    "name": "Alpine Fleece Pullover",
+    "category": "apparel",
+    "price": 69.0,
+    "stock": 8,
+    "description": "Midweight quarter-zip fleece for layering.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-4006",
+    "name": "Clearance Base Layer Top",
+    "category": "apparel",
+    "price": 19.99,
+    "stock": 90,
+    "description": "Lightweight synthetic base layer. Final sale.",
+    "final_sale": true
+  },
+  {
+    "sku": "SKU-5001",
+    "name": "Horizon 2-Person Tent",
+    "category": "camping",
+    "price": 279.0,
+    "stock": 35,
+    "description": "Freestanding three-season tent that weighs under 4 lb.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-5002",
+    "name": "Nightfall 20°F Sleeping Bag",
+    "category": "camping",
+    "price": 189.0,
+    "stock": 8,
+    "description": "Synthetic mummy bag rated to 20°F with a compression sack.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-5003",
+    "name": "AirRest Sleeping Pad",
+    "category": "camping",
+    "price": 99.0,
+    "stock": 60,
+    "description": "Inflatable insulated pad, R-value 4.2.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-5004",
+    "name": "Ultralight Camp Stove",
+    "category": "camping",
+    "price": 54.95,
+    "stock": 12,
+    "description": "Compact canister stove that boils a litre in about 3 minutes.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-5005",
+    "name": "Trail Kitchen Cook Set",
+    "category": "camping",
+    "price": 44.0,
+    "stock": 0,
+    "description": "Nesting aluminium pot, pan, and two mugs.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-5006",
+    "name": "Lumen 400 Headlamp",
+    "category": "camping",
+    "price": 39.95,
+    "stock": 5,
+    "description": "Rechargeable 400-lumen headlamp with red-light mode.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-5007",
+    "name": "CampLite Folding Chair",
+    "category": "camping",
+    "price": 64.0,
+    "stock": 35,
+    "description": "Packable chair that holds up to 300 lb.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-6001",
+    "name": "FlowPure Water Filter",
+    "category": "hydration",
+    "price": 36.0,
+    "stock": 20,
+    "description": "Squeeze filter that removes 99.9999% of bacteria.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-6002",
+    "name": "Insulated Steel Bottle 32oz",
+    "category": "hydration",
+    "price": 34.95,
+    "stock": 12,
+    "description": "Double-wall bottle that keeps drinks cold for 24 hours.",
+    "final_sale": false
+  },
+  {
+    "sku": "SKU-6003",
+    "name": "Hydration Reservoir 3L",
+    "category": "hydration",
+    "price": 32.0,
+    "stock": 5,
+    "description": "Leak-proof bladder with a quick-disconnect hose.",
+    "final_sale": false
+  }
+]

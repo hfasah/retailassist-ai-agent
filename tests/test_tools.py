@@ -1,6 +1,12 @@
 import json
 
-from retailassist.tools import get_order_status, get_product_details, search_products
+from retailassist.store import ORDERS, PRODUCTS
+from retailassist.tools import get_order_status, get_product_details, get_store_policy, search_products
+
+
+def test_data_loaded():
+    assert len(PRODUCTS) == 30
+    assert len(ORDERS) == 100
 
 
 def test_search_finds_matching_products():
@@ -11,7 +17,7 @@ def test_search_finds_matching_products():
 
 def test_search_respects_max_price():
     results = json.loads(search_products.call({"query": "hiking", "max_price": 50}))
-    assert all(r["price"] <= 50 for r in results)
+    assert results and all(r["price"] <= 50 for r in results)
 
 
 def test_search_with_no_matches():
@@ -19,18 +25,28 @@ def test_search_with_no_matches():
 
 
 def test_product_details_and_unknown_sku():
-    assert json.loads(get_product_details.call({"sku": "sku-2001"}))["stock"] == 7
+    assert json.loads(get_product_details.call({"sku": "sku-2001"}))["name"] == "Summit 30L Daypack"
     assert "No product found" in get_product_details.call({"sku": "SKU-9999"})
 
 
-def test_order_status():
-    order = json.loads(get_order_status.call({"order_id": "ORD-5001"}))
-    assert order["status"] == "shipped"
-    assert order["items"] == ["Trailblazer Waterproof Hiking Boots"]
-    assert "No order found" in get_order_status.call({"order_id": "ORD-0000"})
+def test_order_lookup_requires_matching_email():
+    order = ORDERS["ORD-5001"]
+    email = order["customer"]["email"]
+    found = json.loads(get_order_status.call({"order_id": "ord-5001", "email": email.upper()}))
+    assert found["order_id"] == "ORD-5001"
+    assert "No order matches" in get_order_status.call({"order_id": "ORD-5001", "email": "someone@example.com"})
+    assert "No order matches" in get_order_status.call({"order_id": "ORD-0000", "email": email})
 
 
-def test_tool_schemas_are_generated():
-    schema = search_products.to_dict()
-    assert schema["name"] == "search_products"
-    assert schema["input_schema"]["required"] == ["query"]
+def test_order_totals_add_up():
+    for order in ORDERS.values():
+        subtotal = round(sum(i["quantity"] * i["unit_price"] for i in order["items"]), 2)
+        assert order["subtotal"] == subtotal
+        assert order["total"] == round(subtotal + order["shipping_cost"] + order["tax"], 2)
+
+
+def test_store_policy():
+    assert "30 days of delivery" in get_store_policy.call({"topic": "refunds"})
+    assert "$75" in get_store_policy.call({"topic": "shipping"})
+    schema = get_store_policy.to_dict()["input_schema"]["properties"]["topic"]
+    assert schema["enum"] == ["refunds", "shipping"]

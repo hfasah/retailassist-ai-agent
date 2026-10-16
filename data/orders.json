@@ -1,0 +1,3498 @@
+[
+  {
+    "order_id": "ORD-5001",
+    "order_date": "2026-10-13",
+    "customer": {
+      "name": "Amara Moreau",
+      "email": "amara.moreau@example.com"
+    },
+    "ship_to": {
+      "city": "Bend",
+      "state": "OR"
+    },
+    "items": [
+      {
+        "sku": "SKU-4005",
+        "name": "Alpine Fleece Pullover",
+        "quantity": 1,
+        "unit_price": 69.0
+      }
+    ],
+    "subtotal": 69.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 0.0,
+    "total": 75.95,
+    "status": "out_for_delivery",
+    "carrier": "UPS",
+    "tracking_number": "1ZBZ4GRV55NKCKF8JY",
+    "estimated_delivery": "2026-10-23",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5002",
+    "order_date": "2026-09-23",
+    "customer": {
+      "name": "Amara Reyes",
+      "email": "amara.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Chattanooga",
+      "state": "TN"
+    },
+    "items": [
+      {
+        "sku": "SKU-5001",
+        "name": "Horizon 2-Person Tent",
+        "quantity": 1,
+        "unit_price": 279.0
+      }
+    ],
+    "subtotal": 279.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 19.53,
+    "total": 298.53,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400498251982661757503",
+    "estimated_delivery": "2026-10-05",
+    "delivered_date": "2026-10-01"
+  },
+  {
+    "order_id": "ORD-5003",
+    "order_date": "2026-10-10",
+    "customer": {
+      "name": "Aisha Ferreira",
+      "email": "aisha.ferreira@example.com"
+    },
+    "ship_to": {
+      "city": "Santa Fe",
+      "state": "NM"
+    },
+    "items": [
+      {
+        "sku": "SKU-2003",
+        "name": "Drift 20L Dry Bag",
+        "quantity": 2,
+        "unit_price": 29.99
+      }
+    ],
+    "subtotal": 59.98,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 2.92,
+    "total": 77.85,
+    "status": "shipped",
+    "carrier": "UPS",
+    "tracking_number": "1ZRTZH4MY5HLYXRNPD",
+    "estimated_delivery": "2026-10-15",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5004",
+    "order_date": "2026-08-21",
+    "customer": {
+      "name": "Sam Patel",
+      "email": "sam.patel@example.com"
+    },
+    "ship_to": {
+      "city": "Chattanooga",
+      "state": "TN"
+    },
+    "items": [
+      {
+        "sku": "SKU-2003",
+        "name": "Drift 20L Dry Bag",
+        "quantity": 1,
+        "unit_price": 29.99
+      }
+    ],
+    "subtotal": 29.99,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 2.1,
+    "total": 39.04,
+    "status": "cancelled",
+    "carrier": null,
+    "tracking_number": null,
+    "estimated_delivery": null,
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5005",
+    "order_date": "2026-09-09",
+    "customer": {
+      "name": "Ravi Brooks",
+      "email": "ravi.brooks@example.com"
+    },
+    "ship_to": {
+      "city": "Portland",
+      "state": "OR"
+    },
+    "items": [
+      {
+        "sku": "SKU-1003",
+        "name": "Ridgeline Trail Runners",
+        "quantity": 2,
+        "unit_price": 119.0
+      }
+    ],
+    "subtotal": 238.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 0.0,
+    "total": 252.95,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZG9GHPWK8FD3MBDV1",
+    "estimated_delivery": "2026-09-15",
+    "delivered_date": "2026-09-14"
+  },
+  {
+    "order_id": "ORD-5006",
+    "order_date": "2026-10-10",
+    "customer": {
+      "name": "Diego Tanaka",
+      "email": "diego.tanaka@example.com"
+    },
+    "ship_to": {
+      "city": "Santa Fe",
+      "state": "NM"
+    },
+    "items": [
+      {
+        "sku": "SKU-4004",
+        "name": "Trail Tech T-Shirt",
+        "quantity": 1,
+        "unit_price": 32.0
+      }
+    ],
+    "subtotal": 32.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 1.56,
+    "total": 40.51,
+    "status": "shipped",
+    "carrier": "USPS",
+    "tracking_number": "9400229485098998142403",
+    "estimated_delivery": "2026-10-21",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5007",
+    "order_date": "2026-09-04",
+    "customer": {
+      "name": "Sam Kowalski",
+      "email": "sam.kowalski@example.com"
+    },
+    "ship_to": {
+      "city": "Duluth",
+      "state": "MN"
+    },
+    "items": [
+      {
+        "sku": "SKU-5003",
+        "name": "AirRest Sleeping Pad",
+        "quantity": 3,
+        "unit_price": 99.0
+      }
+    ],
+    "subtotal": 297.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 20.42,
+    "total": 332.37,
+    "status": "delivered",
+    "carrier": "FedEx",
+    "tracking_number": "129557055819",
+    "estimated_delivery": "2026-09-10",
+    "delivered_date": "2026-09-09"
+  },
+  {
+    "order_id": "ORD-5008",
+    "order_date": "2026-09-29",
+    "customer": {
+      "name": "Chloe Reyes",
+      "email": "chloe.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Portland",
+      "state": "OR"
+    },
+    "items": [
+      {
+        "sku": "SKU-1004",
+        "name": "Basecamp Camp Sandals",
+        "quantity": 2,
+        "unit_price": 49.95
+      }
+    ],
+    "subtotal": 99.9,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 0.0,
+    "total": 99.9,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400645592723623704990",
+    "estimated_delivery": "2026-10-09",
+    "delivered_date": "2026-10-07"
+  },
+  {
+    "order_id": "ORD-5009",
+    "order_date": "2026-09-21",
+    "customer": {
+      "name": "Sam Kowalski",
+      "email": "sam.kowalski@example.com"
+    },
+    "ship_to": {
+      "city": "Asheville",
+      "state": "NC"
+    },
+    "items": [
+      {
+        "sku": "SKU-3003",
+        "name": "Packable Sun Hat",
+        "quantity": 1,
+        "unit_price": 27.5
+      },
+      {
+        "sku": "SKU-3001",
+        "name": "Merino Wool Hiking Socks (3-pack)",
+        "quantity": 1,
+        "unit_price": 24.0
+      },
+      {
+        "sku": "SKU-2001",
+        "name": "Summit 30L Daypack",
+        "quantity": 1,
+        "unit_price": 64.5
+      }
+    ],
+    "subtotal": 116.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 5.51,
+    "total": 136.46,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZNJX3V8WR596BNVG8",
+    "estimated_delivery": "2026-09-25",
+    "delivered_date": "2026-09-24"
+  },
+  {
+    "order_id": "ORD-5010",
+    "order_date": "2026-10-09",
+    "customer": {
+      "name": "Aisha Delgado",
+      "email": "aisha.delgado@example.com"
+    },
+    "ship_to": {
+      "city": "Boise",
+      "state": "ID"
+    },
+    "items": [
+      {
+        "sku": "SKU-1005",
+        "name": "Frostline Insulated Winter Boots",
+        "quantity": 1,
+        "unit_price": 159.0
+      }
+    ],
+    "subtotal": 159.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 9.54,
+    "total": 168.54,
+    "status": "shipped",
+    "carrier": "USPS",
+    "tracking_number": "9400754008958511387882",
+    "estimated_delivery": "2026-10-21",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5011",
+    "order_date": "2026-10-14",
+    "customer": {
+      "name": "Ravi Sorensen",
+      "email": "ravi.sorensen@example.com"
+    },
+    "ship_to": {
+      "city": "Duluth",
+      "state": "MN"
+    },
+    "items": [
+      {
+        "sku": "SKU-4006",
+        "name": "Clearance Base Layer Top",
+        "quantity": 2,
+        "unit_price": 19.99
+      },
+      {
+        "sku": "SKU-5004",
+        "name": "Ultralight Camp Stove",
+        "quantity": 1,
+        "unit_price": 54.95
+      },
+      {
+        "sku": "SKU-1005",
+        "name": "Frostline Insulated Winter Boots",
+        "quantity": 1,
+        "unit_price": 159.0
+      }
+    ],
+    "subtotal": 253.93,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 17.46,
+    "total": 271.39,
+    "status": "processing",
+    "carrier": null,
+    "tracking_number": null,
+    "estimated_delivery": "2026-10-26",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5012",
+    "order_date": "2026-10-09",
+    "customer": {
+      "name": "Tomas Patel",
+      "email": "tomas.patel@example.com"
+    },
+    "ship_to": {
+      "city": "Seattle",
+      "state": "WA"
+    },
+    "items": [
+      {
+        "sku": "SKU-6003",
+        "name": "Hydration Reservoir 3L",
+        "quantity": 1,
+        "unit_price": 32.0
+      }
+    ],
+    "subtotal": 32.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 2.08,
+    "total": 49.03,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1Z8S3VV7TFAT706AVY",
+    "estimated_delivery": "2026-10-15",
+    "delivered_date": "2026-10-15"
+  },
+  {
+    "order_id": "ORD-5013",
+    "order_date": "2026-08-03",
+    "customer": {
+      "name": "Ravi Novak",
+      "email": "ravi.novak@example.com"
+    },
+    "ship_to": {
+      "city": "Missoula",
+      "state": "MT"
+    },
+    "items": [
+      {
+        "sku": "SKU-1001",
+        "name": "Trailblazer Waterproof Hiking Boots",
+        "quantity": 2,
+        "unit_price": 129.99
+      },
+      {
+        "sku": "SKU-1004",
+        "name": "Basecamp Camp Sandals",
+        "quantity": 1,
+        "unit_price": 49.95
+      }
+    ],
+    "subtotal": 309.93,
+    "shipping_method": "overnight",
+    "shipping_cost": 29.95,
+    "tax": 0.0,
+    "total": 339.88,
+    "status": "delivered",
+    "carrier": "FedEx",
+    "tracking_number": "053749181045",
+    "estimated_delivery": "2026-08-05",
+    "delivered_date": "2026-08-05"
+  },
+  {
+    "order_id": "ORD-5014",
+    "order_date": "2026-09-29",
+    "customer": {
+      "name": "Diego Delgado",
+      "email": "diego.delgado@example.com"
+    },
+    "ship_to": {
+      "city": "Chattanooga",
+      "state": "TN"
+    },
+    "items": [
+      {
+        "sku": "SKU-6001",
+        "name": "FlowPure Water Filter",
+        "quantity": 1,
+        "unit_price": 36.0
+      }
+    ],
+    "subtotal": 36.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 2.52,
+    "total": 45.47,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZNAPJ6MCR5JDUA6SL",
+    "estimated_delivery": "2026-10-09",
+    "delivered_date": "2026-10-08"
+  },
+  {
+    "order_id": "ORD-5015",
+    "order_date": "2026-08-12",
+    "customer": {
+      "name": "Amara Reyes",
+      "email": "amara.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Austin",
+      "state": "TX"
+    },
+    "items": [
+      {
+        "sku": "SKU-5006",
+        "name": "Lumen 400 Headlamp",
+        "quantity": 1,
+        "unit_price": 39.95
+      },
+      {
+        "sku": "SKU-5004",
+        "name": "Ultralight Camp Stove",
+        "quantity": 1,
+        "unit_price": 54.95
+      },
+      {
+        "sku": "SKU-2001",
+        "name": "Summit 30L Daypack",
+        "quantity": 1,
+        "unit_price": 64.5
+      }
+    ],
+    "subtotal": 159.4,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 9.96,
+    "total": 169.36,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400876210248046164260",
+    "estimated_delivery": "2026-08-24",
+    "delivered_date": "2026-08-20"
+  },
+  {
+    "order_id": "ORD-5016",
+    "order_date": "2026-09-09",
+    "customer": {
+      "name": "Caleb Kowalski",
+      "email": "caleb.kowalski@example.com"
+    },
+    "ship_to": {
+      "city": "Duluth",
+      "state": "MN"
+    },
+    "items": [
+      {
+        "sku": "SKU-1002",
+        "name": "CloudStep Running Shoes",
+        "quantity": 1,
+        "unit_price": 89.99
+      },
+      {
+        "sku": "SKU-4004",
+        "name": "Trail Tech T-Shirt",
+        "quantity": 2,
+        "unit_price": 32.0
+      }
+    ],
+    "subtotal": 153.99,
+    "shipping_method": "overnight",
+    "shipping_cost": 29.95,
+    "tax": 10.59,
+    "total": 194.53,
+    "status": "delivered",
+    "carrier": "FedEx",
+    "tracking_number": "695986758587",
+    "estimated_delivery": "2026-09-11",
+    "delivered_date": "2026-09-11"
+  },
+  {
+    "order_id": "ORD-5017",
+    "order_date": "2026-09-06",
+    "customer": {
+      "name": "Aisha Delgado",
+      "email": "aisha.delgado@example.com"
+    },
+    "ship_to": {
+      "city": "Missoula",
+      "state": "MT"
+    },
+    "items": [
+      {
+        "sku": "SKU-4002",
+        "name": "Ember Down Jacket",
+        "quantity": 1,
+        "unit_price": 199.0
+      },
+      {
+        "sku": "SKU-5001",
+        "name": "Horizon 2-Person Tent",
+        "quantity": 1,
+        "unit_price": 279.0
+      },
+      {
+        "sku": "SKU-2003",
+        "name": "Drift 20L Dry Bag",
+        "quantity": 1,
+        "unit_price": 29.99
+      }
+    ],
+    "subtotal": 507.99,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 0.0,
+    "total": 507.99,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZW24C57DAF2UCSY0W",
+    "estimated_delivery": "2026-09-16",
+    "delivered_date": "2026-09-16"
+  },
+  {
+    "order_id": "ORD-5018",
+    "order_date": "2026-10-07",
+    "customer": {
+      "name": "Ravi Sorensen",
+      "email": "ravi.sorensen@example.com"
+    },
+    "ship_to": {
+      "city": "Boise",
+      "state": "ID"
+    },
+    "items": [
+      {
+        "sku": "SKU-5007",
+        "name": "CampLite Folding Chair",
+        "quantity": 1,
+        "unit_price": 64.0
+      },
+      {
+        "sku": "SKU-3005",
+        "name": "Clearance Fleece Gloves",
+        "quantity": 1,
+        "unit_price": 12.0
+      },
+      {
+        "sku": "SKU-4004",
+        "name": "Trail Tech T-Shirt",
+        "quantity": 1,
+        "unit_price": 32.0
+      }
+    ],
+    "subtotal": 108.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 6.48,
+    "total": 129.43,
+    "status": "refunded",
+    "carrier": "UPS",
+    "tracking_number": "1Z9GCNTPUXZHWKM2EV",
+    "estimated_delivery": "2026-10-13",
+    "delivered_date": "2026-10-12",
+    "refund_amount": 114.48,
+    "return_reason": "Wrong size"
+  },
+  {
+    "order_id": "ORD-5019",
+    "order_date": "2026-10-10",
+    "customer": {
+      "name": "Malik Hughes",
+      "email": "malik.hughes@example.com"
+    },
+    "ship_to": {
+      "city": "Salt Lake City",
+      "state": "UT"
+    },
+    "items": [
+      {
+        "sku": "SKU-3004",
+        "name": "Trekking Poles (pair)",
+        "quantity": 3,
+        "unit_price": 79.0
+      },
+      {
+        "sku": "SKU-2004",
+        "name": "Trailhead Hip Pack",
+        "quantity": 1,
+        "unit_price": 34.0
+      },
+      {
+        "sku": "SKU-5005",
+        "name": "Trail Kitchen Cook Set",
+        "quantity": 2,
+        "unit_price": 44.0
+      }
+    ],
+    "subtotal": 359.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 21.9,
+    "total": 380.9,
+    "status": "shipped",
+    "carrier": "USPS",
+    "tracking_number": "9400709209002862419423",
+    "estimated_delivery": "2026-10-21",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5020",
+    "order_date": "2026-09-23",
+    "customer": {
+      "name": "Zara Lindqvist",
+      "email": "zara.lindqvist@example.com"
+    },
+    "ship_to": {
+      "city": "Santa Fe",
+      "state": "NM"
+    },
+    "items": [
+      {
+        "sku": "SKU-4005",
+        "name": "Alpine Fleece Pullover",
+        "quantity": 1,
+        "unit_price": 69.0
+      }
+    ],
+    "subtotal": 69.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 3.36,
+    "total": 79.31,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZDP2NL3SVK3ZSBECG",
+    "estimated_delivery": "2026-10-05",
+    "delivered_date": "2026-10-02"
+  },
+  {
+    "order_id": "ORD-5021",
+    "order_date": "2026-10-09",
+    "customer": {
+      "name": "Mateo Hughes",
+      "email": "mateo.hughes@example.com"
+    },
+    "ship_to": {
+      "city": "Salt Lake City",
+      "state": "UT"
+    },
+    "items": [
+      {
+        "sku": "SKU-5001",
+        "name": "Horizon 2-Person Tent",
+        "quantity": 1,
+        "unit_price": 279.0
+      },
+      {
+        "sku": "SKU-6002",
+        "name": "Insulated Steel Bottle 32oz",
+        "quantity": 1,
+        "unit_price": 34.95
+      },
+      {
+        "sku": "SKU-5007",
+        "name": "CampLite Folding Chair",
+        "quantity": 1,
+        "unit_price": 64.0
+      },
+      {
+        "sku": "SKU-4001",
+        "name": "Stormshield Rain Jacket",
+        "quantity": 3,
+        "unit_price": 149.0
+      }
+    ],
+    "subtotal": 824.95,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 50.32,
+    "total": 875.27,
+    "status": "shipped",
+    "carrier": "UPS",
+    "tracking_number": "1ZFUKA8X9ERJNBGAGB",
+    "estimated_delivery": "2026-10-21",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5022",
+    "order_date": "2026-10-11",
+    "customer": {
+      "name": "Aisha Ferreira",
+      "email": "aisha.ferreira@example.com"
+    },
+    "ship_to": {
+      "city": "Madison",
+      "state": "WI"
+    },
+    "items": [
+      {
+        "sku": "SKU-1001",
+        "name": "Trailblazer Waterproof Hiking Boots",
+        "quantity": 1,
+        "unit_price": 129.99
+      }
+    ],
+    "subtotal": 129.99,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 6.5,
+    "total": 151.44,
+    "status": "shipped",
+    "carrier": "UPS",
+    "tracking_number": "1Z7DJ7FPE09D8MCJBZ",
+    "estimated_delivery": "2026-10-15",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5023",
+    "order_date": "2026-08-23",
+    "customer": {
+      "name": "Ravi Patel",
+      "email": "ravi.patel@example.com"
+    },
+    "ship_to": {
+      "city": "Salt Lake City",
+      "state": "UT"
+    },
+    "items": [
+      {
+        "sku": "SKU-1004",
+        "name": "Basecamp Camp Sandals",
+        "quantity": 1,
+        "unit_price": 49.95
+      }
+    ],
+    "subtotal": 49.95,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 3.05,
+    "total": 59.95,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400172575982337100296",
+    "estimated_delivery": "2026-09-02",
+    "delivered_date": "2026-09-01"
+  },
+  {
+    "order_id": "ORD-5024",
+    "order_date": "2026-10-15",
+    "customer": {
+      "name": "Elena Mbeki",
+      "email": "elena.mbeki@example.com"
+    },
+    "ship_to": {
+      "city": "Boise",
+      "state": "ID"
+    },
+    "items": [
+      {
+        "sku": "SKU-2001",
+        "name": "Summit 30L Daypack",
+        "quantity": 3,
+        "unit_price": 64.5
+      }
+    ],
+    "subtotal": 193.5,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 11.61,
+    "total": 205.11,
+    "status": "processing",
+    "carrier": null,
+    "tracking_number": null,
+    "estimated_delivery": "2026-10-27",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5025",
+    "order_date": "2026-09-23",
+    "customer": {
+      "name": "Mateo Hughes",
+      "email": "mateo.hughes@example.com"
+    },
+    "ship_to": {
+      "city": "Portland",
+      "state": "OR"
+    },
+    "items": [
+      {
+        "sku": "SKU-5001",
+        "name": "Horizon 2-Person Tent",
+        "quantity": 1,
+        "unit_price": 279.0
+      }
+    ],
+    "subtotal": 279.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 0.0,
+    "total": 279.0,
+    "status": "refunded",
+    "carrier": "UPS",
+    "tracking_number": "1Z28JDKLSCW9KEJ1Y3",
+    "estimated_delivery": "2026-10-05",
+    "delivered_date": "2026-10-01",
+    "refund_amount": 279.0,
+    "return_reason": "Changed my mind"
+  },
+  {
+    "order_id": "ORD-5026",
+    "order_date": "2026-10-14",
+    "customer": {
+      "name": "Sam Reyes",
+      "email": "sam.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Austin",
+      "state": "TX"
+    },
+    "items": [
+      {
+        "sku": "SKU-1001",
+        "name": "Trailblazer Waterproof Hiking Boots",
+        "quantity": 1,
+        "unit_price": 129.99
+      }
+    ],
+    "subtotal": 129.99,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 8.12,
+    "total": 138.11,
+    "status": "processing",
+    "carrier": null,
+    "tracking_number": null,
+    "estimated_delivery": "2026-10-26",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5027",
+    "order_date": "2026-10-03",
+    "customer": {
+      "name": "Hana Brooks",
+      "email": "hana.brooks@example.com"
+    },
+    "ship_to": {
+      "city": "Boise",
+      "state": "ID"
+    },
+    "items": [
+      {
+        "sku": "SKU-4001",
+        "name": "Stormshield Rain Jacket",
+        "quantity": 1,
+        "unit_price": 149.0
+      },
+      {
+        "sku": "SKU-1003",
+        "name": "Ridgeline Trail Runners",
+        "quantity": 2,
+        "unit_price": 119.0
+      }
+    ],
+    "subtotal": 387.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 23.22,
+    "total": 425.17,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZEHMWU25ARJ94NPYG",
+    "estimated_delivery": "2026-10-08",
+    "delivered_date": "2026-10-08"
+  },
+  {
+    "order_id": "ORD-5028",
+    "order_date": "2026-10-02",
+    "customer": {
+      "name": "Aisha Ferreira",
+      "email": "aisha.ferreira@example.com"
+    },
+    "ship_to": {
+      "city": "Burlington",
+      "state": "VT"
+    },
+    "items": [
+      {
+        "sku": "SKU-1001",
+        "name": "Trailblazer Waterproof Hiking Boots",
+        "quantity": 1,
+        "unit_price": 129.99
+      },
+      {
+        "sku": "SKU-1003",
+        "name": "Ridgeline Trail Runners",
+        "quantity": 1,
+        "unit_price": 119.0
+      }
+    ],
+    "subtotal": 248.99,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 14.94,
+    "total": 278.88,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZZN81RFMX5KLG3BAN",
+    "estimated_delivery": "2026-10-08",
+    "delivered_date": "2026-10-07"
+  },
+  {
+    "order_id": "ORD-5029",
+    "order_date": "2026-10-08",
+    "customer": {
+      "name": "Theo Fitzgerald",
+      "email": "theo.fitzgerald@example.com"
+    },
+    "ship_to": {
+      "city": "Missoula",
+      "state": "MT"
+    },
+    "items": [
+      {
+        "sku": "SKU-4004",
+        "name": "Trail Tech T-Shirt",
+        "quantity": 1,
+        "unit_price": 32.0
+      },
+      {
+        "sku": "SKU-1002",
+        "name": "CloudStep Running Shoes",
+        "quantity": 1,
+        "unit_price": 89.99
+      },
+      {
+        "sku": "SKU-4001",
+        "name": "Stormshield Rain Jacket",
+        "quantity": 1,
+        "unit_price": 149.0
+      }
+    ],
+    "subtotal": 270.99,
+    "shipping_method": "overnight",
+    "shipping_cost": 29.95,
+    "tax": 0.0,
+    "total": 300.94,
+    "status": "delivered",
+    "carrier": "FedEx",
+    "tracking_number": "654137672594",
+    "estimated_delivery": "2026-10-12",
+    "delivered_date": "2026-10-12"
+  },
+  {
+    "order_id": "ORD-5030",
+    "order_date": "2026-10-12",
+    "customer": {
+      "name": "Zara Haddad",
+      "email": "zara.haddad@example.com"
+    },
+    "ship_to": {
+      "city": "Seattle",
+      "state": "WA"
+    },
+    "items": [
+      {
+        "sku": "SKU-3005",
+        "name": "Clearance Fleece Gloves",
+        "quantity": 1,
+        "unit_price": 12.0
+      }
+    ],
+    "subtotal": 12.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 0.78,
+    "total": 19.73,
+    "status": "shipped",
+    "carrier": "UPS",
+    "tracking_number": "1ZYM5X9PDFFF46KR42",
+    "estimated_delivery": "2026-10-22",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5031",
+    "order_date": "2026-08-15",
+    "customer": {
+      "name": "Priya Castillo",
+      "email": "priya.castillo@example.com"
+    },
+    "ship_to": {
+      "city": "Chattanooga",
+      "state": "TN"
+    },
+    "items": [
+      {
+        "sku": "SKU-1001",
+        "name": "Trailblazer Waterproof Hiking Boots",
+        "quantity": 1,
+        "unit_price": 129.99
+      }
+    ],
+    "subtotal": 129.99,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 9.1,
+    "total": 154.04,
+    "status": "delivered",
+    "carrier": "FedEx",
+    "tracking_number": "844373989238",
+    "estimated_delivery": "2026-08-20",
+    "delivered_date": "2026-08-20"
+  },
+  {
+    "order_id": "ORD-5032",
+    "order_date": "2026-10-08",
+    "customer": {
+      "name": "Zara Haddad",
+      "email": "zara.haddad@example.com"
+    },
+    "ship_to": {
+      "city": "Chattanooga",
+      "state": "TN"
+    },
+    "items": [
+      {
+        "sku": "SKU-5002",
+        "name": "Nightfall 20\u00b0F Sleeping Bag",
+        "quantity": 1,
+        "unit_price": 189.0
+      }
+    ],
+    "subtotal": 189.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 13.23,
+    "total": 217.18,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZG1GKVVEHFPDM5FYB",
+    "estimated_delivery": "2026-10-14",
+    "delivered_date": "2026-10-14"
+  },
+  {
+    "order_id": "ORD-5033",
+    "order_date": "2026-08-26",
+    "customer": {
+      "name": "Theo Brooks",
+      "email": "theo.brooks@example.com"
+    },
+    "ship_to": {
+      "city": "Missoula",
+      "state": "MT"
+    },
+    "items": [
+      {
+        "sku": "SKU-3002",
+        "name": "Polarized Trail Sunglasses",
+        "quantity": 1,
+        "unit_price": 59.0
+      }
+    ],
+    "subtotal": 59.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 0.0,
+    "total": 73.95,
+    "status": "delivered",
+    "carrier": "FedEx",
+    "tracking_number": "800699740684",
+    "estimated_delivery": "2026-09-01",
+    "delivered_date": "2026-09-01"
+  },
+  {
+    "order_id": "ORD-5034",
+    "order_date": "2026-10-02",
+    "customer": {
+      "name": "Mateo Fitzgerald",
+      "email": "mateo.fitzgerald@example.com"
+    },
+    "ship_to": {
+      "city": "Duluth",
+      "state": "MN"
+    },
+    "items": [
+      {
+        "sku": "SKU-3005",
+        "name": "Clearance Fleece Gloves",
+        "quantity": 1,
+        "unit_price": 12.0
+      }
+    ],
+    "subtotal": 12.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 0.83,
+    "total": 19.78,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400108629142208961435",
+    "estimated_delivery": "2026-10-14",
+    "delivered_date": "2026-10-14"
+  },
+  {
+    "order_id": "ORD-5035",
+    "order_date": "2026-09-05",
+    "customer": {
+      "name": "Ingrid Sorensen",
+      "email": "ingrid.sorensen@example.com"
+    },
+    "ship_to": {
+      "city": "Santa Fe",
+      "state": "NM"
+    },
+    "items": [
+      {
+        "sku": "SKU-6001",
+        "name": "FlowPure Water Filter",
+        "quantity": 1,
+        "unit_price": 36.0
+      },
+      {
+        "sku": "SKU-4002",
+        "name": "Ember Down Jacket",
+        "quantity": 1,
+        "unit_price": 199.0
+      },
+      {
+        "sku": "SKU-1004",
+        "name": "Basecamp Camp Sandals",
+        "quantity": 1,
+        "unit_price": 49.95
+      },
+      {
+        "sku": "SKU-2003",
+        "name": "Drift 20L Dry Bag",
+        "quantity": 1,
+        "unit_price": 29.99
+      }
+    ],
+    "subtotal": 314.94,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 15.35,
+    "total": 330.29,
+    "status": "cancelled",
+    "carrier": null,
+    "tracking_number": null,
+    "estimated_delivery": null,
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5036",
+    "order_date": "2026-08-18",
+    "customer": {
+      "name": "Ingrid Reyes",
+      "email": "ingrid.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Denver",
+      "state": "CO"
+    },
+    "items": [
+      {
+        "sku": "SKU-5004",
+        "name": "Ultralight Camp Stove",
+        "quantity": 2,
+        "unit_price": 54.95
+      },
+      {
+        "sku": "SKU-1002",
+        "name": "CloudStep Running Shoes",
+        "quantity": 1,
+        "unit_price": 89.99
+      }
+    ],
+    "subtotal": 199.89,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 5.8,
+    "total": 205.69,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZS7T768RSN43L1T1C",
+    "estimated_delivery": "2026-08-28",
+    "delivered_date": "2026-08-26"
+  },
+  {
+    "order_id": "ORD-5037",
+    "order_date": "2026-10-11",
+    "customer": {
+      "name": "Mateo Fitzgerald",
+      "email": "mateo.fitzgerald@example.com"
+    },
+    "ship_to": {
+      "city": "Bend",
+      "state": "OR"
+    },
+    "items": [
+      {
+        "sku": "SKU-5006",
+        "name": "Lumen 400 Headlamp",
+        "quantity": 1,
+        "unit_price": 39.95
+      }
+    ],
+    "subtotal": 39.95,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 0.0,
+    "total": 46.9,
+    "status": "shipped",
+    "carrier": "UPS",
+    "tracking_number": "1ZU8UFTRB3Y4YVPZYT",
+    "estimated_delivery": "2026-10-21",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5038",
+    "order_date": "2026-08-18",
+    "customer": {
+      "name": "Ravi Brooks",
+      "email": "ravi.brooks@example.com"
+    },
+    "ship_to": {
+      "city": "Boise",
+      "state": "ID"
+    },
+    "items": [
+      {
+        "sku": "SKU-5002",
+        "name": "Nightfall 20\u00b0F Sleeping Bag",
+        "quantity": 1,
+        "unit_price": 189.0
+      },
+      {
+        "sku": "SKU-5004",
+        "name": "Ultralight Camp Stove",
+        "quantity": 1,
+        "unit_price": 54.95
+      }
+    ],
+    "subtotal": 243.95,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 14.64,
+    "total": 258.59,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1Z370WJX72UX9D4YAG",
+    "estimated_delivery": "2026-08-28",
+    "delivered_date": "2026-08-26"
+  },
+  {
+    "order_id": "ORD-5039",
+    "order_date": "2026-10-13",
+    "customer": {
+      "name": "Hana Nakamura",
+      "email": "hana.nakamura@example.com"
+    },
+    "ship_to": {
+      "city": "Salt Lake City",
+      "state": "UT"
+    },
+    "items": [
+      {
+        "sku": "SKU-5003",
+        "name": "AirRest Sleeping Pad",
+        "quantity": 1,
+        "unit_price": 99.0
+      },
+      {
+        "sku": "SKU-4004",
+        "name": "Trail Tech T-Shirt",
+        "quantity": 1,
+        "unit_price": 32.0
+      },
+      {
+        "sku": "SKU-3005",
+        "name": "Clearance Fleece Gloves",
+        "quantity": 1,
+        "unit_price": 12.0
+      },
+      {
+        "sku": "SKU-4005",
+        "name": "Alpine Fleece Pullover",
+        "quantity": 1,
+        "unit_price": 69.0
+      }
+    ],
+    "subtotal": 212.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 12.93,
+    "total": 224.93,
+    "status": "shipped",
+    "carrier": "UPS",
+    "tracking_number": "1ZX9N7E7BZCWM19YYU",
+    "estimated_delivery": "2026-10-23",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5040",
+    "order_date": "2026-10-12",
+    "customer": {
+      "name": "Malik Adeyemi",
+      "email": "malik.adeyemi@example.com"
+    },
+    "ship_to": {
+      "city": "Missoula",
+      "state": "MT"
+    },
+    "items": [
+      {
+        "sku": "SKU-5006",
+        "name": "Lumen 400 Headlamp",
+        "quantity": 1,
+        "unit_price": 39.95
+      }
+    ],
+    "subtotal": 39.95,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 0.0,
+    "total": 46.9,
+    "status": "shipped",
+    "carrier": "USPS",
+    "tracking_number": "9400072283190811216007",
+    "estimated_delivery": "2026-10-22",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5041",
+    "order_date": "2026-10-10",
+    "customer": {
+      "name": "Tomas Patel",
+      "email": "tomas.patel@example.com"
+    },
+    "ship_to": {
+      "city": "Seattle",
+      "state": "WA"
+    },
+    "items": [
+      {
+        "sku": "SKU-3005",
+        "name": "Clearance Fleece Gloves",
+        "quantity": 1,
+        "unit_price": 12.0
+      }
+    ],
+    "subtotal": 12.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 0.78,
+    "total": 19.73,
+    "status": "out_for_delivery",
+    "carrier": "USPS",
+    "tracking_number": "9400475159078549044649",
+    "estimated_delivery": "2026-10-21",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5042",
+    "order_date": "2026-10-14",
+    "customer": {
+      "name": "Mateo Fitzgerald",
+      "email": "mateo.fitzgerald@example.com"
+    },
+    "ship_to": {
+      "city": "Madison",
+      "state": "WI"
+    },
+    "items": [
+      {
+        "sku": "SKU-4006",
+        "name": "Clearance Base Layer Top",
+        "quantity": 1,
+        "unit_price": 19.99
+      }
+    ],
+    "subtotal": 19.99,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 1.0,
+    "total": 27.94,
+    "status": "processing",
+    "carrier": null,
+    "tracking_number": null,
+    "estimated_delivery": "2026-10-26",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5043",
+    "order_date": "2026-10-11",
+    "customer": {
+      "name": "Ingrid Sorensen",
+      "email": "ingrid.sorensen@example.com"
+    },
+    "ship_to": {
+      "city": "Flagstaff",
+      "state": "AZ"
+    },
+    "items": [
+      {
+        "sku": "SKU-5003",
+        "name": "AirRest Sleeping Pad",
+        "quantity": 1,
+        "unit_price": 99.0
+      }
+    ],
+    "subtotal": 99.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 5.54,
+    "total": 104.54,
+    "status": "out_for_delivery",
+    "carrier": "USPS",
+    "tracking_number": "9400484837332964004731",
+    "estimated_delivery": "2026-10-21",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5044",
+    "order_date": "2026-10-10",
+    "customer": {
+      "name": "Diego Delgado",
+      "email": "diego.delgado@example.com"
+    },
+    "ship_to": {
+      "city": "Portland",
+      "state": "OR"
+    },
+    "items": [
+      {
+        "sku": "SKU-5005",
+        "name": "Trail Kitchen Cook Set",
+        "quantity": 2,
+        "unit_price": 44.0
+      },
+      {
+        "sku": "SKU-3005",
+        "name": "Clearance Fleece Gloves",
+        "quantity": 1,
+        "unit_price": 12.0
+      },
+      {
+        "sku": "SKU-6001",
+        "name": "FlowPure Water Filter",
+        "quantity": 1,
+        "unit_price": 36.0
+      }
+    ],
+    "subtotal": 136.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 0.0,
+    "total": 136.0,
+    "status": "shipped",
+    "carrier": "UPS",
+    "tracking_number": "1Z3G5FUBJ397EJSLNJ",
+    "estimated_delivery": "2026-10-21",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5045",
+    "order_date": "2026-09-03",
+    "customer": {
+      "name": "Tomas Patel",
+      "email": "tomas.patel@example.com"
+    },
+    "ship_to": {
+      "city": "Seattle",
+      "state": "WA"
+    },
+    "items": [
+      {
+        "sku": "SKU-6003",
+        "name": "Hydration Reservoir 3L",
+        "quantity": 1,
+        "unit_price": 32.0
+      },
+      {
+        "sku": "SKU-3002",
+        "name": "Polarized Trail Sunglasses",
+        "quantity": 2,
+        "unit_price": 59.0
+      },
+      {
+        "sku": "SKU-3003",
+        "name": "Packable Sun Hat",
+        "quantity": 1,
+        "unit_price": 27.5
+      }
+    ],
+    "subtotal": 177.5,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 11.54,
+    "total": 189.04,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400790534133958170044",
+    "estimated_delivery": "2026-09-15",
+    "delivered_date": "2026-09-15"
+  },
+  {
+    "order_id": "ORD-5046",
+    "order_date": "2026-09-03",
+    "customer": {
+      "name": "Malik Hughes",
+      "email": "malik.hughes@example.com"
+    },
+    "ship_to": {
+      "city": "Duluth",
+      "state": "MN"
+    },
+    "items": [
+      {
+        "sku": "SKU-1004",
+        "name": "Basecamp Camp Sandals",
+        "quantity": 1,
+        "unit_price": 49.95
+      }
+    ],
+    "subtotal": 49.95,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 3.43,
+    "total": 60.33,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZHA7Z16YSS93GE4H7",
+    "estimated_delivery": "2026-09-15",
+    "delivered_date": "2026-09-15"
+  },
+  {
+    "order_id": "ORD-5047",
+    "order_date": "2026-08-23",
+    "customer": {
+      "name": "Malik Kowalski",
+      "email": "malik.kowalski@example.com"
+    },
+    "ship_to": {
+      "city": "Burlington",
+      "state": "VT"
+    },
+    "items": [
+      {
+        "sku": "SKU-1001",
+        "name": "Trailblazer Waterproof Hiking Boots",
+        "quantity": 1,
+        "unit_price": 129.99
+      }
+    ],
+    "subtotal": 129.99,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 7.8,
+    "total": 152.74,
+    "status": "return_requested",
+    "carrier": "FedEx",
+    "tracking_number": "557410386890",
+    "estimated_delivery": "2026-08-27",
+    "delivered_date": "2026-08-26",
+    "return_reason": "Changed my mind"
+  },
+  {
+    "order_id": "ORD-5048",
+    "order_date": "2026-08-17",
+    "customer": {
+      "name": "Aisha Tanaka",
+      "email": "aisha.tanaka@example.com"
+    },
+    "ship_to": {
+      "city": "Portland",
+      "state": "OR"
+    },
+    "items": [
+      {
+        "sku": "SKU-3002",
+        "name": "Polarized Trail Sunglasses",
+        "quantity": 1,
+        "unit_price": 59.0
+      }
+    ],
+    "subtotal": 59.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 0.0,
+    "total": 65.95,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400515937882116761747",
+    "estimated_delivery": "2026-08-27",
+    "delivered_date": "2026-08-27"
+  },
+  {
+    "order_id": "ORD-5049",
+    "order_date": "2026-08-27",
+    "customer": {
+      "name": "Zara Okafor",
+      "email": "zara.okafor@example.com"
+    },
+    "ship_to": {
+      "city": "Missoula",
+      "state": "MT"
+    },
+    "items": [
+      {
+        "sku": "SKU-4002",
+        "name": "Ember Down Jacket",
+        "quantity": 1,
+        "unit_price": 199.0
+      }
+    ],
+    "subtotal": 199.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 0.0,
+    "total": 199.0,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZKB2F1C9MZ2KCKYR1",
+    "estimated_delivery": "2026-09-08",
+    "delivered_date": "2026-09-08"
+  },
+  {
+    "order_id": "ORD-5050",
+    "order_date": "2026-08-27",
+    "customer": {
+      "name": "Chloe Reyes",
+      "email": "chloe.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Salt Lake City",
+      "state": "UT"
+    },
+    "items": [
+      {
+        "sku": "SKU-4001",
+        "name": "Stormshield Rain Jacket",
+        "quantity": 2,
+        "unit_price": 149.0
+      },
+      {
+        "sku": "SKU-1004",
+        "name": "Basecamp Camp Sandals",
+        "quantity": 3,
+        "unit_price": 49.95
+      },
+      {
+        "sku": "SKU-5006",
+        "name": "Lumen 400 Headlamp",
+        "quantity": 1,
+        "unit_price": 39.95
+      },
+      {
+        "sku": "SKU-6002",
+        "name": "Insulated Steel Bottle 32oz",
+        "quantity": 1,
+        "unit_price": 34.95
+      }
+    ],
+    "subtotal": 522.75,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 31.89,
+    "total": 554.64,
+    "status": "cancelled",
+    "carrier": null,
+    "tracking_number": null,
+    "estimated_delivery": null,
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5051",
+    "order_date": "2026-08-12",
+    "customer": {
+      "name": "Aisha Tanaka",
+      "email": "aisha.tanaka@example.com"
+    },
+    "ship_to": {
+      "city": "Flagstaff",
+      "state": "AZ"
+    },
+    "items": [
+      {
+        "sku": "SKU-6003",
+        "name": "Hydration Reservoir 3L",
+        "quantity": 1,
+        "unit_price": 32.0
+      }
+    ],
+    "subtotal": 32.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 1.79,
+    "total": 40.74,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZN1LBAJC8VYK42MXA",
+    "estimated_delivery": "2026-08-24",
+    "delivered_date": "2026-08-24"
+  },
+  {
+    "order_id": "ORD-5052",
+    "order_date": "2026-08-18",
+    "customer": {
+      "name": "Diego Reyes",
+      "email": "diego.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Madison",
+      "state": "WI"
+    },
+    "items": [
+      {
+        "sku": "SKU-4004",
+        "name": "Trail Tech T-Shirt",
+        "quantity": 1,
+        "unit_price": 32.0
+      }
+    ],
+    "subtotal": 32.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 1.6,
+    "total": 48.55,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZNURNHMDBB57YG742",
+    "estimated_delivery": "2026-08-24",
+    "delivered_date": "2026-08-21"
+  },
+  {
+    "order_id": "ORD-5053",
+    "order_date": "2026-08-01",
+    "customer": {
+      "name": "Liam Patel",
+      "email": "liam.patel@example.com"
+    },
+    "ship_to": {
+      "city": "Missoula",
+      "state": "MT"
+    },
+    "items": [
+      {
+        "sku": "SKU-1005",
+        "name": "Frostline Insulated Winter Boots",
+        "quantity": 1,
+        "unit_price": 159.0
+      },
+      {
+        "sku": "SKU-4006",
+        "name": "Clearance Base Layer Top",
+        "quantity": 1,
+        "unit_price": 19.99
+      },
+      {
+        "sku": "SKU-3004",
+        "name": "Trekking Poles (pair)",
+        "quantity": 1,
+        "unit_price": 79.0
+      }
+    ],
+    "subtotal": 257.99,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 0.0,
+    "total": 257.99,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400703796772297916547",
+    "estimated_delivery": "2026-08-12",
+    "delivered_date": "2026-08-11"
+  },
+  {
+    "order_id": "ORD-5054",
+    "order_date": "2026-08-15",
+    "customer": {
+      "name": "Sam Reyes",
+      "email": "sam.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Santa Fe",
+      "state": "NM"
+    },
+    "items": [
+      {
+        "sku": "SKU-6001",
+        "name": "FlowPure Water Filter",
+        "quantity": 1,
+        "unit_price": 36.0
+      },
+      {
+        "sku": "SKU-2004",
+        "name": "Trailhead Hip Pack",
+        "quantity": 1,
+        "unit_price": 34.0
+      }
+    ],
+    "subtotal": 70.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 3.41,
+    "total": 80.36,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400751014580988943330",
+    "estimated_delivery": "2026-08-26",
+    "delivered_date": "2026-08-24"
+  },
+  {
+    "order_id": "ORD-5055",
+    "order_date": "2026-10-14",
+    "customer": {
+      "name": "Aisha Delgado",
+      "email": "aisha.delgado@example.com"
+    },
+    "ship_to": {
+      "city": "Bend",
+      "state": "OR"
+    },
+    "items": [
+      {
+        "sku": "SKU-1005",
+        "name": "Frostline Insulated Winter Boots",
+        "quantity": 2,
+        "unit_price": 159.0
+      },
+      {
+        "sku": "SKU-1002",
+        "name": "CloudStep Running Shoes",
+        "quantity": 1,
+        "unit_price": 89.99
+      },
+      {
+        "sku": "SKU-3001",
+        "name": "Merino Wool Hiking Socks (3-pack)",
+        "quantity": 2,
+        "unit_price": 24.0
+      }
+    ],
+    "subtotal": 455.99,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 0.0,
+    "total": 455.99,
+    "status": "processing",
+    "carrier": null,
+    "tracking_number": null,
+    "estimated_delivery": "2026-10-26",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5056",
+    "order_date": "2026-10-07",
+    "customer": {
+      "name": "Ezra Fitzgerald",
+      "email": "ezra.fitzgerald@example.com"
+    },
+    "ship_to": {
+      "city": "Portland",
+      "state": "OR"
+    },
+    "items": [
+      {
+        "sku": "SKU-1005",
+        "name": "Frostline Insulated Winter Boots",
+        "quantity": 1,
+        "unit_price": 159.0
+      }
+    ],
+    "subtotal": 159.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 0.0,
+    "total": 159.0,
+    "status": "out_for_delivery",
+    "carrier": "UPS",
+    "tracking_number": "1Z3991DTF3WK0H74EL",
+    "estimated_delivery": "2026-10-19",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5057",
+    "order_date": "2026-10-09",
+    "customer": {
+      "name": "Caleb Kowalski",
+      "email": "caleb.kowalski@example.com"
+    },
+    "ship_to": {
+      "city": "Missoula",
+      "state": "MT"
+    },
+    "items": [
+      {
+        "sku": "SKU-3003",
+        "name": "Packable Sun Hat",
+        "quantity": 3,
+        "unit_price": 27.5
+      },
+      {
+        "sku": "SKU-1003",
+        "name": "Ridgeline Trail Runners",
+        "quantity": 1,
+        "unit_price": 119.0
+      }
+    ],
+    "subtotal": 201.5,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 0.0,
+    "total": 201.5,
+    "status": "out_for_delivery",
+    "carrier": "USPS",
+    "tracking_number": "9400346920737677305817",
+    "estimated_delivery": "2026-10-21",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5058",
+    "order_date": "2026-08-07",
+    "customer": {
+      "name": "Sam Sorensen",
+      "email": "sam.sorensen@example.com"
+    },
+    "ship_to": {
+      "city": "Seattle",
+      "state": "WA"
+    },
+    "items": [
+      {
+        "sku": "SKU-5005",
+        "name": "Trail Kitchen Cook Set",
+        "quantity": 2,
+        "unit_price": 44.0
+      }
+    ],
+    "subtotal": 88.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 5.72,
+    "total": 108.67,
+    "status": "cancelled",
+    "carrier": null,
+    "tracking_number": null,
+    "estimated_delivery": null,
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5059",
+    "order_date": "2026-10-12",
+    "customer": {
+      "name": "Aisha Ferreira",
+      "email": "aisha.ferreira@example.com"
+    },
+    "ship_to": {
+      "city": "Denver",
+      "state": "CO"
+    },
+    "items": [
+      {
+        "sku": "SKU-3004",
+        "name": "Trekking Poles (pair)",
+        "quantity": 3,
+        "unit_price": 79.0
+      }
+    ],
+    "subtotal": 237.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 6.87,
+    "total": 243.87,
+    "status": "out_for_delivery",
+    "carrier": "UPS",
+    "tracking_number": "1Z8R6BSVA4CWRWCZGG",
+    "estimated_delivery": "2026-10-22",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5060",
+    "order_date": "2026-08-02",
+    "customer": {
+      "name": "Ingrid Reyes",
+      "email": "ingrid.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Duluth",
+      "state": "MN"
+    },
+    "items": [
+      {
+        "sku": "SKU-3005",
+        "name": "Clearance Fleece Gloves",
+        "quantity": 1,
+        "unit_price": 12.0
+      }
+    ],
+    "subtotal": 12.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 0.83,
+    "total": 19.78,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZA2MAKENB1VBZ9ZY2",
+    "estimated_delivery": "2026-08-12",
+    "delivered_date": "2026-08-12"
+  },
+  {
+    "order_id": "ORD-5061",
+    "order_date": "2026-08-03",
+    "customer": {
+      "name": "Diego Tanaka",
+      "email": "diego.tanaka@example.com"
+    },
+    "ship_to": {
+      "city": "Bend",
+      "state": "OR"
+    },
+    "items": [
+      {
+        "sku": "SKU-1005",
+        "name": "Frostline Insulated Winter Boots",
+        "quantity": 1,
+        "unit_price": 159.0
+      },
+      {
+        "sku": "SKU-6001",
+        "name": "FlowPure Water Filter",
+        "quantity": 1,
+        "unit_price": 36.0
+      },
+      {
+        "sku": "SKU-4006",
+        "name": "Clearance Base Layer Top",
+        "quantity": 1,
+        "unit_price": 19.99
+      },
+      {
+        "sku": "SKU-5002",
+        "name": "Nightfall 20\u00b0F Sleeping Bag",
+        "quantity": 1,
+        "unit_price": 189.0
+      }
+    ],
+    "subtotal": 403.99,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 0.0,
+    "total": 403.99,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZY15ECE24CA9Y06HX",
+    "estimated_delivery": "2026-08-13",
+    "delivered_date": "2026-08-11"
+  },
+  {
+    "order_id": "ORD-5062",
+    "order_date": "2026-10-11",
+    "customer": {
+      "name": "Zara Haddad",
+      "email": "zara.haddad@example.com"
+    },
+    "ship_to": {
+      "city": "Salt Lake City",
+      "state": "UT"
+    },
+    "items": [
+      {
+        "sku": "SKU-5003",
+        "name": "AirRest Sleeping Pad",
+        "quantity": 3,
+        "unit_price": 99.0
+      },
+      {
+        "sku": "SKU-6003",
+        "name": "Hydration Reservoir 3L",
+        "quantity": 1,
+        "unit_price": 32.0
+      }
+    ],
+    "subtotal": 329.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 20.07,
+    "total": 349.07,
+    "status": "shipped",
+    "carrier": "USPS",
+    "tracking_number": "9400484068330588796751",
+    "estimated_delivery": "2026-10-21",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5063",
+    "order_date": "2026-10-13",
+    "customer": {
+      "name": "Amara Moreau",
+      "email": "amara.moreau@example.com"
+    },
+    "ship_to": {
+      "city": "Duluth",
+      "state": "MN"
+    },
+    "items": [
+      {
+        "sku": "SKU-4005",
+        "name": "Alpine Fleece Pullover",
+        "quantity": 1,
+        "unit_price": 69.0
+      }
+    ],
+    "subtotal": 69.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 4.74,
+    "total": 80.69,
+    "status": "out_for_delivery",
+    "carrier": "USPS",
+    "tracking_number": "9400603975780964638761",
+    "estimated_delivery": "2026-10-23",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5064",
+    "order_date": "2026-08-13",
+    "customer": {
+      "name": "Ingrid Lindqvist",
+      "email": "ingrid.lindqvist@example.com"
+    },
+    "ship_to": {
+      "city": "Chattanooga",
+      "state": "TN"
+    },
+    "items": [
+      {
+        "sku": "SKU-4003",
+        "name": "Ridge Softshell Pants",
+        "quantity": 1,
+        "unit_price": 89.0
+      },
+      {
+        "sku": "SKU-1005",
+        "name": "Frostline Insulated Winter Boots",
+        "quantity": 1,
+        "unit_price": 159.0
+      },
+      {
+        "sku": "SKU-3001",
+        "name": "Merino Wool Hiking Socks (3-pack)",
+        "quantity": 1,
+        "unit_price": 24.0
+      }
+    ],
+    "subtotal": 272.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 19.04,
+    "total": 305.99,
+    "status": "delivered",
+    "carrier": "FedEx",
+    "tracking_number": "826513551916",
+    "estimated_delivery": "2026-08-19",
+    "delivered_date": "2026-08-19"
+  },
+  {
+    "order_id": "ORD-5065",
+    "order_date": "2026-10-02",
+    "customer": {
+      "name": "Mateo Hughes",
+      "email": "mateo.hughes@example.com"
+    },
+    "ship_to": {
+      "city": "Santa Fe",
+      "state": "NM"
+    },
+    "items": [
+      {
+        "sku": "SKU-5001",
+        "name": "Horizon 2-Person Tent",
+        "quantity": 1,
+        "unit_price": 279.0
+      }
+    ],
+    "subtotal": 279.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 13.6,
+    "total": 292.6,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400746462948620044263",
+    "estimated_delivery": "2026-10-14",
+    "delivered_date": "2026-10-14"
+  },
+  {
+    "order_id": "ORD-5066",
+    "order_date": "2026-10-10",
+    "customer": {
+      "name": "Ravi Novak",
+      "email": "ravi.novak@example.com"
+    },
+    "ship_to": {
+      "city": "Seattle",
+      "state": "WA"
+    },
+    "items": [
+      {
+        "sku": "SKU-1004",
+        "name": "Basecamp Camp Sandals",
+        "quantity": 1,
+        "unit_price": 49.95
+      },
+      {
+        "sku": "SKU-3002",
+        "name": "Polarized Trail Sunglasses",
+        "quantity": 1,
+        "unit_price": 59.0
+      }
+    ],
+    "subtotal": 108.95,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 7.08,
+    "total": 130.98,
+    "status": "shipped",
+    "carrier": "UPS",
+    "tracking_number": "1Z41YVDYWTXP65ZFWG",
+    "estimated_delivery": "2026-10-15",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5067",
+    "order_date": "2026-10-09",
+    "customer": {
+      "name": "Ingrid Lindqvist",
+      "email": "ingrid.lindqvist@example.com"
+    },
+    "ship_to": {
+      "city": "Salt Lake City",
+      "state": "UT"
+    },
+    "items": [
+      {
+        "sku": "SKU-3003",
+        "name": "Packable Sun Hat",
+        "quantity": 1,
+        "unit_price": 27.5
+      }
+    ],
+    "subtotal": 27.5,
+    "shipping_method": "overnight",
+    "shipping_cost": 29.95,
+    "tax": 1.68,
+    "total": 59.13,
+    "status": "delivered",
+    "carrier": "FedEx",
+    "tracking_number": "201123400532",
+    "estimated_delivery": "2026-10-13",
+    "delivered_date": "2026-10-13"
+  },
+  {
+    "order_id": "ORD-5068",
+    "order_date": "2026-09-02",
+    "customer": {
+      "name": "Mateo Hughes",
+      "email": "mateo.hughes@example.com"
+    },
+    "ship_to": {
+      "city": "Madison",
+      "state": "WI"
+    },
+    "items": [
+      {
+        "sku": "SKU-1004",
+        "name": "Basecamp Camp Sandals",
+        "quantity": 1,
+        "unit_price": 49.95
+      }
+    ],
+    "subtotal": 49.95,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 2.5,
+    "total": 59.4,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZJC4KD11PTH4W4XAC",
+    "estimated_delivery": "2026-09-14",
+    "delivered_date": "2026-09-14"
+  },
+  {
+    "order_id": "ORD-5069",
+    "order_date": "2026-08-30",
+    "customer": {
+      "name": "Caleb Castillo",
+      "email": "caleb.castillo@example.com"
+    },
+    "ship_to": {
+      "city": "Asheville",
+      "state": "NC"
+    },
+    "items": [
+      {
+        "sku": "SKU-4002",
+        "name": "Ember Down Jacket",
+        "quantity": 1,
+        "unit_price": 199.0
+      },
+      {
+        "sku": "SKU-5003",
+        "name": "AirRest Sleeping Pad",
+        "quantity": 1,
+        "unit_price": 99.0
+      }
+    ],
+    "subtotal": 298.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 14.15,
+    "total": 312.15,
+    "status": "cancelled",
+    "carrier": null,
+    "tracking_number": null,
+    "estimated_delivery": null,
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5070",
+    "order_date": "2026-10-14",
+    "customer": {
+      "name": "Liam Lindqvist",
+      "email": "liam.lindqvist@example.com"
+    },
+    "ship_to": {
+      "city": "Madison",
+      "state": "WI"
+    },
+    "items": [
+      {
+        "sku": "SKU-6001",
+        "name": "FlowPure Water Filter",
+        "quantity": 1,
+        "unit_price": 36.0
+      },
+      {
+        "sku": "SKU-5003",
+        "name": "AirRest Sleeping Pad",
+        "quantity": 1,
+        "unit_price": 99.0
+      },
+      {
+        "sku": "SKU-5001",
+        "name": "Horizon 2-Person Tent",
+        "quantity": 3,
+        "unit_price": 279.0
+      }
+    ],
+    "subtotal": 972.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 48.6,
+    "total": 1020.6,
+    "status": "processing",
+    "carrier": null,
+    "tracking_number": null,
+    "estimated_delivery": "2026-10-26",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5071",
+    "order_date": "2026-09-08",
+    "customer": {
+      "name": "Priya Ferreira",
+      "email": "priya.ferreira@example.com"
+    },
+    "ship_to": {
+      "city": "Denver",
+      "state": "CO"
+    },
+    "items": [
+      {
+        "sku": "SKU-5001",
+        "name": "Horizon 2-Person Tent",
+        "quantity": 1,
+        "unit_price": 279.0
+      }
+    ],
+    "subtotal": 279.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 8.09,
+    "total": 287.09,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1Z4N1Y30A4NDSXVR24",
+    "estimated_delivery": "2026-09-18",
+    "delivered_date": "2026-09-16"
+  },
+  {
+    "order_id": "ORD-5072",
+    "order_date": "2026-08-07",
+    "customer": {
+      "name": "Aisha Tanaka",
+      "email": "aisha.tanaka@example.com"
+    },
+    "ship_to": {
+      "city": "Burlington",
+      "state": "VT"
+    },
+    "items": [
+      {
+        "sku": "SKU-6003",
+        "name": "Hydration Reservoir 3L",
+        "quantity": 1,
+        "unit_price": 32.0
+      }
+    ],
+    "subtotal": 32.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 1.92,
+    "total": 40.87,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZL68J7Z996PABXT94",
+    "estimated_delivery": "2026-08-19",
+    "delivered_date": "2026-08-19"
+  },
+  {
+    "order_id": "ORD-5073",
+    "order_date": "2026-08-18",
+    "customer": {
+      "name": "Mateo Hughes",
+      "email": "mateo.hughes@example.com"
+    },
+    "ship_to": {
+      "city": "Asheville",
+      "state": "NC"
+    },
+    "items": [
+      {
+        "sku": "SKU-3001",
+        "name": "Merino Wool Hiking Socks (3-pack)",
+        "quantity": 1,
+        "unit_price": 24.0
+      },
+      {
+        "sku": "SKU-1002",
+        "name": "CloudStep Running Shoes",
+        "quantity": 2,
+        "unit_price": 89.99
+      },
+      {
+        "sku": "SKU-5003",
+        "name": "AirRest Sleeping Pad",
+        "quantity": 1,
+        "unit_price": 99.0
+      }
+    ],
+    "subtotal": 302.98,
+    "shipping_method": "overnight",
+    "shipping_cost": 29.95,
+    "tax": 14.39,
+    "total": 347.32,
+    "status": "delivered",
+    "carrier": "FedEx",
+    "tracking_number": "259616526560",
+    "estimated_delivery": "2026-08-20",
+    "delivered_date": "2026-08-20"
+  },
+  {
+    "order_id": "ORD-5074",
+    "order_date": "2026-10-08",
+    "customer": {
+      "name": "Ingrid Hughes",
+      "email": "ingrid.hughes@example.com"
+    },
+    "ship_to": {
+      "city": "Missoula",
+      "state": "MT"
+    },
+    "items": [
+      {
+        "sku": "SKU-4004",
+        "name": "Trail Tech T-Shirt",
+        "quantity": 3,
+        "unit_price": 32.0
+      }
+    ],
+    "subtotal": 96.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 0.0,
+    "total": 110.95,
+    "status": "refunded",
+    "carrier": "FedEx",
+    "tracking_number": "419369055799",
+    "estimated_delivery": "2026-10-14",
+    "delivered_date": "2026-10-13",
+    "refund_amount": 96.0,
+    "return_reason": "Not as described"
+  },
+  {
+    "order_id": "ORD-5075",
+    "order_date": "2026-09-15",
+    "customer": {
+      "name": "Sam Kowalski",
+      "email": "sam.kowalski@example.com"
+    },
+    "ship_to": {
+      "city": "Chattanooga",
+      "state": "TN"
+    },
+    "items": [
+      {
+        "sku": "SKU-5006",
+        "name": "Lumen 400 Headlamp",
+        "quantity": 2,
+        "unit_price": 39.95
+      },
+      {
+        "sku": "SKU-4002",
+        "name": "Ember Down Jacket",
+        "quantity": 3,
+        "unit_price": 199.0
+      },
+      {
+        "sku": "SKU-2001",
+        "name": "Summit 30L Daypack",
+        "quantity": 2,
+        "unit_price": 64.5
+      }
+    ],
+    "subtotal": 805.9,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 56.41,
+    "total": 862.31,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400269346581528376703",
+    "estimated_delivery": "2026-09-25",
+    "delivered_date": "2026-09-24"
+  },
+  {
+    "order_id": "ORD-5076",
+    "order_date": "2026-09-13",
+    "customer": {
+      "name": "Caleb Kowalski",
+      "email": "caleb.kowalski@example.com"
+    },
+    "ship_to": {
+      "city": "Madison",
+      "state": "WI"
+    },
+    "items": [
+      {
+        "sku": "SKU-5007",
+        "name": "CampLite Folding Chair",
+        "quantity": 1,
+        "unit_price": 64.0
+      },
+      {
+        "sku": "SKU-3005",
+        "name": "Clearance Fleece Gloves",
+        "quantity": 1,
+        "unit_price": 12.0
+      },
+      {
+        "sku": "SKU-4003",
+        "name": "Ridge Softshell Pants",
+        "quantity": 1,
+        "unit_price": 89.0
+      }
+    ],
+    "subtotal": 165.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 8.25,
+    "total": 188.2,
+    "status": "delivered",
+    "carrier": "FedEx",
+    "tracking_number": "322279370660",
+    "estimated_delivery": "2026-09-17",
+    "delivered_date": "2026-09-16"
+  },
+  {
+    "order_id": "ORD-5077",
+    "order_date": "2026-09-17",
+    "customer": {
+      "name": "Ravi Novak",
+      "email": "ravi.novak@example.com"
+    },
+    "ship_to": {
+      "city": "Missoula",
+      "state": "MT"
+    },
+    "items": [
+      {
+        "sku": "SKU-5003",
+        "name": "AirRest Sleeping Pad",
+        "quantity": 1,
+        "unit_price": 99.0
+      },
+      {
+        "sku": "SKU-5005",
+        "name": "Trail Kitchen Cook Set",
+        "quantity": 1,
+        "unit_price": 44.0
+      },
+      {
+        "sku": "SKU-3001",
+        "name": "Merino Wool Hiking Socks (3-pack)",
+        "quantity": 2,
+        "unit_price": 24.0
+      }
+    ],
+    "subtotal": 191.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 0.0,
+    "total": 191.0,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400211764545622780470",
+    "estimated_delivery": "2026-09-29",
+    "delivered_date": "2026-09-29"
+  },
+  {
+    "order_id": "ORD-5078",
+    "order_date": "2026-10-12",
+    "customer": {
+      "name": "Elena Mbeki",
+      "email": "elena.mbeki@example.com"
+    },
+    "ship_to": {
+      "city": "Flagstaff",
+      "state": "AZ"
+    },
+    "items": [
+      {
+        "sku": "SKU-4003",
+        "name": "Ridge Softshell Pants",
+        "quantity": 1,
+        "unit_price": 89.0
+      }
+    ],
+    "subtotal": 89.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 4.98,
+    "total": 93.98,
+    "status": "out_for_delivery",
+    "carrier": "USPS",
+    "tracking_number": "9400748401455630202047",
+    "estimated_delivery": "2026-10-22",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5079",
+    "order_date": "2026-09-30",
+    "customer": {
+      "name": "Sam Kowalski",
+      "email": "sam.kowalski@example.com"
+    },
+    "ship_to": {
+      "city": "Chattanooga",
+      "state": "TN"
+    },
+    "items": [
+      {
+        "sku": "SKU-1002",
+        "name": "CloudStep Running Shoes",
+        "quantity": 1,
+        "unit_price": 89.99
+      },
+      {
+        "sku": "SKU-3001",
+        "name": "Merino Wool Hiking Socks (3-pack)",
+        "quantity": 1,
+        "unit_price": 24.0
+      },
+      {
+        "sku": "SKU-3005",
+        "name": "Clearance Fleece Gloves",
+        "quantity": 3,
+        "unit_price": 12.0
+      },
+      {
+        "sku": "SKU-2001",
+        "name": "Summit 30L Daypack",
+        "quantity": 1,
+        "unit_price": 64.5
+      }
+    ],
+    "subtotal": 214.49,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 15.01,
+    "total": 229.5,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZEXC2YV4V3ZC4ZURZ",
+    "estimated_delivery": "2026-10-12",
+    "delivered_date": "2026-10-09"
+  },
+  {
+    "order_id": "ORD-5080",
+    "order_date": "2026-08-14",
+    "customer": {
+      "name": "Diego Sorensen",
+      "email": "diego.sorensen@example.com"
+    },
+    "ship_to": {
+      "city": "Burlington",
+      "state": "VT"
+    },
+    "items": [
+      {
+        "sku": "SKU-3003",
+        "name": "Packable Sun Hat",
+        "quantity": 1,
+        "unit_price": 27.5
+      }
+    ],
+    "subtotal": 27.5,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 1.65,
+    "total": 44.1,
+    "status": "refunded",
+    "carrier": "UPS",
+    "tracking_number": "1Z1MLXW72KENV81EHR",
+    "estimated_delivery": "2026-08-20",
+    "delivered_date": "2026-08-19",
+    "refund_amount": 29.15,
+    "return_reason": "Changed my mind"
+  },
+  {
+    "order_id": "ORD-5081",
+    "order_date": "2026-08-31",
+    "customer": {
+      "name": "Hana Brooks",
+      "email": "hana.brooks@example.com"
+    },
+    "ship_to": {
+      "city": "Santa Fe",
+      "state": "NM"
+    },
+    "items": [
+      {
+        "sku": "SKU-4005",
+        "name": "Alpine Fleece Pullover",
+        "quantity": 1,
+        "unit_price": 69.0
+      },
+      {
+        "sku": "SKU-4006",
+        "name": "Clearance Base Layer Top",
+        "quantity": 2,
+        "unit_price": 19.99
+      }
+    ],
+    "subtotal": 108.98,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 5.31,
+    "total": 129.24,
+    "status": "refunded",
+    "carrier": "UPS",
+    "tracking_number": "1ZZHD9JKR5NJ1BMCHN",
+    "estimated_delivery": "2026-09-04",
+    "delivered_date": "2026-09-04",
+    "refund_amount": 114.29,
+    "return_reason": "Changed my mind"
+  },
+  {
+    "order_id": "ORD-5082",
+    "order_date": "2026-10-13",
+    "customer": {
+      "name": "Jordan Haddad",
+      "email": "jordan.haddad@example.com"
+    },
+    "ship_to": {
+      "city": "Flagstaff",
+      "state": "AZ"
+    },
+    "items": [
+      {
+        "sku": "SKU-3001",
+        "name": "Merino Wool Hiking Socks (3-pack)",
+        "quantity": 1,
+        "unit_price": 24.0
+      },
+      {
+        "sku": "SKU-6001",
+        "name": "FlowPure Water Filter",
+        "quantity": 1,
+        "unit_price": 36.0
+      },
+      {
+        "sku": "SKU-5003",
+        "name": "AirRest Sleeping Pad",
+        "quantity": 1,
+        "unit_price": 99.0
+      }
+    ],
+    "subtotal": 159.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 8.9,
+    "total": 167.9,
+    "status": "shipped",
+    "carrier": "UPS",
+    "tracking_number": "1ZJ486MXU3P68NKV6S",
+    "estimated_delivery": "2026-10-23",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5083",
+    "order_date": "2026-09-10",
+    "customer": {
+      "name": "Elena Castillo",
+      "email": "elena.castillo@example.com"
+    },
+    "ship_to": {
+      "city": "Austin",
+      "state": "TX"
+    },
+    "items": [
+      {
+        "sku": "SKU-6003",
+        "name": "Hydration Reservoir 3L",
+        "quantity": 1,
+        "unit_price": 32.0
+      }
+    ],
+    "subtotal": 32.0,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 2.0,
+    "total": 48.95,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZRRXNPD7A9FMABWFT",
+    "estimated_delivery": "2026-09-16",
+    "delivered_date": "2026-09-16"
+  },
+  {
+    "order_id": "ORD-5084",
+    "order_date": "2026-08-28",
+    "customer": {
+      "name": "Nora Moreau",
+      "email": "nora.moreau@example.com"
+    },
+    "ship_to": {
+      "city": "Austin",
+      "state": "TX"
+    },
+    "items": [
+      {
+        "sku": "SKU-4005",
+        "name": "Alpine Fleece Pullover",
+        "quantity": 2,
+        "unit_price": 69.0
+      }
+    ],
+    "subtotal": 138.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 8.62,
+    "total": 146.62,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400295413384662896417",
+    "estimated_delivery": "2026-09-09",
+    "delivered_date": "2026-09-07"
+  },
+  {
+    "order_id": "ORD-5085",
+    "order_date": "2026-10-08",
+    "customer": {
+      "name": "Caleb Kowalski",
+      "email": "caleb.kowalski@example.com"
+    },
+    "ship_to": {
+      "city": "Chattanooga",
+      "state": "TN"
+    },
+    "items": [
+      {
+        "sku": "SKU-1002",
+        "name": "CloudStep Running Shoes",
+        "quantity": 1,
+        "unit_price": 89.99
+      },
+      {
+        "sku": "SKU-4003",
+        "name": "Ridge Softshell Pants",
+        "quantity": 2,
+        "unit_price": 89.0
+      },
+      {
+        "sku": "SKU-5007",
+        "name": "CampLite Folding Chair",
+        "quantity": 1,
+        "unit_price": 64.0
+      },
+      {
+        "sku": "SKU-6001",
+        "name": "FlowPure Water Filter",
+        "quantity": 1,
+        "unit_price": 36.0
+      }
+    ],
+    "subtotal": 367.99,
+    "shipping_method": "expedited",
+    "shipping_cost": 14.95,
+    "tax": 25.76,
+    "total": 408.7,
+    "status": "return_requested",
+    "carrier": "UPS",
+    "tracking_number": "1Z247F1MXXM0HD0PH9",
+    "estimated_delivery": "2026-10-14",
+    "delivered_date": "2026-10-14",
+    "return_reason": "Changed my mind"
+  },
+  {
+    "order_id": "ORD-5086",
+    "order_date": "2026-10-14",
+    "customer": {
+      "name": "Aisha Tanaka",
+      "email": "aisha.tanaka@example.com"
+    },
+    "ship_to": {
+      "city": "Seattle",
+      "state": "WA"
+    },
+    "items": [
+      {
+        "sku": "SKU-2004",
+        "name": "Trailhead Hip Pack",
+        "quantity": 1,
+        "unit_price": 34.0
+      },
+      {
+        "sku": "SKU-5007",
+        "name": "CampLite Folding Chair",
+        "quantity": 1,
+        "unit_price": 64.0
+      }
+    ],
+    "subtotal": 98.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 6.37,
+    "total": 104.37,
+    "status": "processing",
+    "carrier": null,
+    "tracking_number": null,
+    "estimated_delivery": "2026-10-26",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5087",
+    "order_date": "2026-08-10",
+    "customer": {
+      "name": "Elena Mbeki",
+      "email": "elena.mbeki@example.com"
+    },
+    "ship_to": {
+      "city": "Austin",
+      "state": "TX"
+    },
+    "items": [
+      {
+        "sku": "SKU-5002",
+        "name": "Nightfall 20\u00b0F Sleeping Bag",
+        "quantity": 2,
+        "unit_price": 189.0
+      }
+    ],
+    "subtotal": 378.0,
+    "shipping_method": "overnight",
+    "shipping_cost": 29.95,
+    "tax": 23.62,
+    "total": 431.57,
+    "status": "return_requested",
+    "carrier": "FedEx",
+    "tracking_number": "035001447580",
+    "estimated_delivery": "2026-08-12",
+    "delivered_date": "2026-08-12",
+    "return_reason": "Changed my mind"
+  },
+  {
+    "order_id": "ORD-5088",
+    "order_date": "2026-10-08",
+    "customer": {
+      "name": "Ingrid Reyes",
+      "email": "ingrid.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Denver",
+      "state": "CO"
+    },
+    "items": [
+      {
+        "sku": "SKU-2004",
+        "name": "Trailhead Hip Pack",
+        "quantity": 1,
+        "unit_price": 34.0
+      },
+      {
+        "sku": "SKU-6002",
+        "name": "Insulated Steel Bottle 32oz",
+        "quantity": 1,
+        "unit_price": 34.95
+      }
+    ],
+    "subtotal": 68.95,
+    "shipping_method": "overnight",
+    "shipping_cost": 29.95,
+    "tax": 2.0,
+    "total": 100.9,
+    "status": "refunded",
+    "carrier": "FedEx",
+    "tracking_number": "021889255865",
+    "estimated_delivery": "2026-10-12",
+    "delivered_date": "2026-10-12",
+    "refund_amount": 70.95,
+    "return_reason": "Changed my mind"
+  },
+  {
+    "order_id": "ORD-5089",
+    "order_date": "2026-09-27",
+    "customer": {
+      "name": "Ingrid Lindqvist",
+      "email": "ingrid.lindqvist@example.com"
+    },
+    "ship_to": {
+      "city": "Bend",
+      "state": "OR"
+    },
+    "items": [
+      {
+        "sku": "SKU-3005",
+        "name": "Clearance Fleece Gloves",
+        "quantity": 1,
+        "unit_price": 12.0
+      }
+    ],
+    "subtotal": 12.0,
+    "shipping_method": "overnight",
+    "shipping_cost": 29.95,
+    "tax": 0.0,
+    "total": 41.95,
+    "status": "return_requested",
+    "carrier": "FedEx",
+    "tracking_number": "936742531537",
+    "estimated_delivery": "2026-09-29",
+    "delivered_date": "2026-09-29",
+    "return_reason": "Changed my mind"
+  },
+  {
+    "order_id": "ORD-5090",
+    "order_date": "2026-09-27",
+    "customer": {
+      "name": "Ingrid Reyes",
+      "email": "ingrid.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Seattle",
+      "state": "WA"
+    },
+    "items": [
+      {
+        "sku": "SKU-1005",
+        "name": "Frostline Insulated Winter Boots",
+        "quantity": 1,
+        "unit_price": 159.0
+      },
+      {
+        "sku": "SKU-5004",
+        "name": "Ultralight Camp Stove",
+        "quantity": 1,
+        "unit_price": 54.95
+      },
+      {
+        "sku": "SKU-3004",
+        "name": "Trekking Poles (pair)",
+        "quantity": 1,
+        "unit_price": 79.0
+      }
+    ],
+    "subtotal": 292.95,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 19.04,
+    "total": 311.99,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZS32EJG32JKSV0DSP",
+    "estimated_delivery": "2026-10-07",
+    "delivered_date": "2026-10-07"
+  },
+  {
+    "order_id": "ORD-5091",
+    "order_date": "2026-09-06",
+    "customer": {
+      "name": "Elena Mbeki",
+      "email": "elena.mbeki@example.com"
+    },
+    "ship_to": {
+      "city": "Flagstaff",
+      "state": "AZ"
+    },
+    "items": [
+      {
+        "sku": "SKU-1005",
+        "name": "Frostline Insulated Winter Boots",
+        "quantity": 1,
+        "unit_price": 159.0
+      }
+    ],
+    "subtotal": 159.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 8.9,
+    "total": 167.9,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400044402265113936833",
+    "estimated_delivery": "2026-09-16",
+    "delivered_date": "2026-09-16"
+  },
+  {
+    "order_id": "ORD-5092",
+    "order_date": "2026-09-20",
+    "customer": {
+      "name": "Noah Delgado",
+      "email": "noah.delgado@example.com"
+    },
+    "ship_to": {
+      "city": "Asheville",
+      "state": "NC"
+    },
+    "items": [
+      {
+        "sku": "SKU-4002",
+        "name": "Ember Down Jacket",
+        "quantity": 1,
+        "unit_price": 199.0
+      },
+      {
+        "sku": "SKU-3002",
+        "name": "Polarized Trail Sunglasses",
+        "quantity": 1,
+        "unit_price": 59.0
+      }
+    ],
+    "subtotal": 258.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 12.26,
+    "total": 270.26,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZYSA9SCX6Z5S0PY6T",
+    "estimated_delivery": "2026-09-30",
+    "delivered_date": "2026-09-30"
+  },
+  {
+    "order_id": "ORD-5093",
+    "order_date": "2026-10-09",
+    "customer": {
+      "name": "Amara Reyes",
+      "email": "amara.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Salt Lake City",
+      "state": "UT"
+    },
+    "items": [
+      {
+        "sku": "SKU-2004",
+        "name": "Trailhead Hip Pack",
+        "quantity": 1,
+        "unit_price": 34.0
+      }
+    ],
+    "subtotal": 34.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 2.07,
+    "total": 43.02,
+    "status": "out_for_delivery",
+    "carrier": "UPS",
+    "tracking_number": "1ZT2ZFDGXNHTBWHM2S",
+    "estimated_delivery": "2026-10-21",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5094",
+    "order_date": "2026-08-23",
+    "customer": {
+      "name": "Sam Reyes",
+      "email": "sam.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Missoula",
+      "state": "MT"
+    },
+    "items": [
+      {
+        "sku": "SKU-5001",
+        "name": "Horizon 2-Person Tent",
+        "quantity": 1,
+        "unit_price": 279.0
+      },
+      {
+        "sku": "SKU-5002",
+        "name": "Nightfall 20\u00b0F Sleeping Bag",
+        "quantity": 3,
+        "unit_price": 189.0
+      }
+    ],
+    "subtotal": 846.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 0.0,
+    "total": 846.0,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1Z337RJN7CFNN4ZF9X",
+    "estimated_delivery": "2026-09-02",
+    "delivered_date": "2026-08-31"
+  },
+  {
+    "order_id": "ORD-5095",
+    "order_date": "2026-10-13",
+    "customer": {
+      "name": "Ravi Sorensen",
+      "email": "ravi.sorensen@example.com"
+    },
+    "ship_to": {
+      "city": "Boise",
+      "state": "ID"
+    },
+    "items": [
+      {
+        "sku": "SKU-4003",
+        "name": "Ridge Softshell Pants",
+        "quantity": 1,
+        "unit_price": 89.0
+      },
+      {
+        "sku": "SKU-4002",
+        "name": "Ember Down Jacket",
+        "quantity": 1,
+        "unit_price": 199.0
+      },
+      {
+        "sku": "SKU-3003",
+        "name": "Packable Sun Hat",
+        "quantity": 1,
+        "unit_price": 27.5
+      }
+    ],
+    "subtotal": 315.5,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 18.93,
+    "total": 334.43,
+    "status": "shipped",
+    "carrier": "USPS",
+    "tracking_number": "9400381866192115924164",
+    "estimated_delivery": "2026-10-23",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5096",
+    "order_date": "2026-10-12",
+    "customer": {
+      "name": "Sam Patel",
+      "email": "sam.patel@example.com"
+    },
+    "ship_to": {
+      "city": "Madison",
+      "state": "WI"
+    },
+    "items": [
+      {
+        "sku": "SKU-2002",
+        "name": "Expedition 65L Backpacking Pack",
+        "quantity": 1,
+        "unit_price": 229.0
+      }
+    ],
+    "subtotal": 229.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 11.45,
+    "total": 240.45,
+    "status": "out_for_delivery",
+    "carrier": "USPS",
+    "tracking_number": "9400575311649333134168",
+    "estimated_delivery": "2026-10-22",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5097",
+    "order_date": "2026-09-27",
+    "customer": {
+      "name": "Amara Reyes",
+      "email": "amara.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Seattle",
+      "state": "WA"
+    },
+    "items": [
+      {
+        "sku": "SKU-1004",
+        "name": "Basecamp Camp Sandals",
+        "quantity": 1,
+        "unit_price": 49.95
+      }
+    ],
+    "subtotal": 49.95,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 3.25,
+    "total": 60.15,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZD4C6LNMZJG4AE1B0",
+    "estimated_delivery": "2026-10-07",
+    "delivered_date": "2026-10-05"
+  },
+  {
+    "order_id": "ORD-5098",
+    "order_date": "2026-10-09",
+    "customer": {
+      "name": "Mateo Sorensen",
+      "email": "mateo.sorensen@example.com"
+    },
+    "ship_to": {
+      "city": "Flagstaff",
+      "state": "AZ"
+    },
+    "items": [
+      {
+        "sku": "SKU-4002",
+        "name": "Ember Down Jacket",
+        "quantity": 1,
+        "unit_price": 199.0
+      }
+    ],
+    "subtotal": 199.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 11.14,
+    "total": 210.14,
+    "status": "shipped",
+    "carrier": "UPS",
+    "tracking_number": "1Z5JT7179SJSGGJ8HZ",
+    "estimated_delivery": "2026-10-21",
+    "delivered_date": null
+  },
+  {
+    "order_id": "ORD-5099",
+    "order_date": "2026-10-02",
+    "customer": {
+      "name": "Jordan Haddad",
+      "email": "jordan.haddad@example.com"
+    },
+    "ship_to": {
+      "city": "Bend",
+      "state": "OR"
+    },
+    "items": [
+      {
+        "sku": "SKU-3005",
+        "name": "Clearance Fleece Gloves",
+        "quantity": 1,
+        "unit_price": 12.0
+      }
+    ],
+    "subtotal": 12.0,
+    "shipping_method": "standard",
+    "shipping_cost": 6.95,
+    "tax": 0.0,
+    "total": 18.95,
+    "status": "delivered",
+    "carrier": "USPS",
+    "tracking_number": "9400294384972853761122",
+    "estimated_delivery": "2026-10-14",
+    "delivered_date": "2026-10-12"
+  },
+  {
+    "order_id": "ORD-5100",
+    "order_date": "2026-09-02",
+    "customer": {
+      "name": "Chloe Reyes",
+      "email": "chloe.reyes@example.com"
+    },
+    "ship_to": {
+      "city": "Flagstaff",
+      "state": "AZ"
+    },
+    "items": [
+      {
+        "sku": "SKU-3001",
+        "name": "Merino Wool Hiking Socks (3-pack)",
+        "quantity": 1,
+        "unit_price": 24.0
+      },
+      {
+        "sku": "SKU-4005",
+        "name": "Alpine Fleece Pullover",
+        "quantity": 2,
+        "unit_price": 69.0
+      },
+      {
+        "sku": "SKU-2004",
+        "name": "Trailhead Hip Pack",
+        "quantity": 2,
+        "unit_price": 34.0
+      },
+      {
+        "sku": "SKU-6001",
+        "name": "FlowPure Water Filter",
+        "quantity": 1,
+        "unit_price": 36.0
+      }
+    ],
+    "subtotal": 266.0,
+    "shipping_method": "standard",
+    "shipping_cost": 0.0,
+    "tax": 14.9,
+    "total": 280.9,
+    "status": "delivered",
+    "carrier": "UPS",
+    "tracking_number": "1ZXZV4V8PUSNGK8DEL",
+    "estimated_delivery": "2026-09-14",
+    "delivered_date": "2026-09-10"
+  }
+]

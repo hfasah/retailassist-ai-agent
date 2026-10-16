@@ -19,9 +19,11 @@ Example conversation:
 
 ```
 You: Do you have hiking boots under $150?
-Assistant: Yes! The Trailblazer Waterproof Hiking Boots are $129.99 and we have 14 in stock.
-You: Where's my order ORD-5001?
-Assistant: It shipped via UPS and should arrive by October 18.
+Assistant: Yes! The Trailblazer Waterproof Hiking Boots are $129.99, and we have 3 left in stock.
+You: Where's my order ORD-5003? My email is aisha.ferreira@example.com
+Assistant: It shipped via UPS and is due to arrive today, October 15.
+You: Can I return it if it doesn't fit?
+Assistant: Yes. You have 30 days from delivery to return unused items with tags attached...
 ```
 
 ## How it works
@@ -32,9 +34,21 @@ The agent uses the Anthropic Python SDK's tool runner: Claude decides when to ca
 |---|---|
 | `search_products` | Keyword search over the catalog, with an optional max price |
 | `get_product_details` | Full details, price, and stock for one SKU |
-| `get_order_status` | Status, items, carrier, and ETA for an order |
+| `get_order_status` | Status, items, totals, tracking, and delivery dates for an order. Needs the order number **and** the customer's email, so customers can't look up each other's orders |
+| `get_store_policy` | The full returns & refund policy or shipping FAQ |
 
-The store data in `src/retailassist/store.py` is sample data. Swap those dictionaries for calls to your real catalog, inventory, and order systems.
+## Sample data
+
+Everything in `data/` is fictional and made up for testing:
+
+| File | Contents |
+|---|---|
+| `data/products.json` | 30 outdoor-gear products across 7 categories, with prices, stock levels, and final-sale flags |
+| `data/orders.json` | 100 orders (`ORD-5001` to `ORD-5100`) from August to October 2026, with customers, items, shipping, tax, tracking, and statuses from processing to refunded |
+| `data/policies/refund-policy.md` | Return window, exclusions, defects, refunds, exchanges, and cancellations |
+| `data/policies/shipping-faq.md` | Shipping options and costs, timing, tracking, order statuses, and delivery problems |
+
+Customer emails use the reserved `example.com` domain. The products and orders come from `scripts/generate_data.py`, which uses a fixed random seed, so running it again gives the same files. To connect a real store, replace the loaders in `src/retailassist/store.py` with calls to your catalog, inventory, and order systems.
 
 ## Project structure
 
@@ -42,8 +56,10 @@ The store data in `src/retailassist/store.py` is sample data. Swap those diction
 src/retailassist/
 ├── agent.py   # chat loop, system prompt, and Claude API call
 ├── tools.py   # tools the agent can call
-└── store.py   # sample product and order data
-tests/         # unit tests for the tools (no API key needed)
+└── store.py   # loads the data in data/
+data/          # fictional catalog, orders, and policies
+scripts/       # generate_data.py rebuilds the catalog and orders
+tests/         # unit tests for the tools and data (no API key needed)
 ```
 
 ## Running tests
