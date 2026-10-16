@@ -1,0 +1,15 @@
+LICENSE
+README.md
+pyproject.toml
+src/retailassist/__init__.py
+src/retailassist/__main__.py
+src/retailassist/agent.py
+src/retailassist/store.py
+src/retailassist/tools.py
+src/retailassist.egg-info/PKG-INFO
+src/retailassist.egg-info/SOURCES.txt
+src/retailassist.egg-info/dependency_links.txt
+src/retailassist.egg-info/entry_points.txt
+src/retailassist.egg-info/requires.txt
+src/retailassist.egg-info/top_level.txt
+tests/test_tools.py

@@ -1,0 +1,42 @@
+Metadata-Version: 2.4
+Name: retailassist
+Version: 0.1.0
+Summary: An AI shopping and customer-support agent for retail, built on Claude.
+License-Expression: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: anthropic>=1.15
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Dynamic: license-file
+
+# RetailAssist AI Agent
+
+An AI agent for retail: answering customer questions, looking up products and orders, and helping with store operations.
+
+## Getting started
+
+```bash
+git clone https://github.com/hfasah/retailassist-ai-agent.git
+cd retailassist-ai-agent
+cp .env.example .env   # then fill in your keys
+```
+
+## Project structure
+
+```
+.
+├── src/          # agent source code
+├── tests/        # tests
+├── .env.example  # environment variable template
+└── README.md
+```
+
+## Status
+
+Early setup — nothing implemented yet.
+
+## License
+
+[MIT](LICENSE)
