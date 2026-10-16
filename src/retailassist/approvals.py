@@ -23,27 +23,27 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from .refunds import RefundReason, describe_refund, refund_outcome, submit_refund
+from .schemas import Details, Email, Message, OrderId, Sku
 from .store import DATA_DIR, find_order
 from .tickets import TicketCategory, open_ticket
 
 Action = Literal["create_ticket", "request_refund"]
 ApprovalStatus = Literal["pending", "approved", "rejected"]
-EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
 
 class TicketArgs(BaseModel):
-    email: str = Field(pattern=EMAIL_PATTERN, max_length=254)
+    email: Email
     category: TicketCategory
-    message: str = Field(min_length=1, max_length=4000)
-    order_id: str | None = None
+    message: Message
+    order_id: OrderId | None = None
 
 
 class RefundArgs(BaseModel):
-    order_id: str = Field(min_length=3, max_length=20)
-    email: str = Field(pattern=EMAIL_PATTERN, max_length=254)
+    order_id: OrderId
+    email: Email
     reason: RefundReason
-    skus: list[str] | None = Field(None, max_length=20)
-    details: str = Field("", max_length=2000)
+    skus: list[Sku] | None = Field(None, max_length=20)
+    details: Details = ""
 
 
 @dataclass

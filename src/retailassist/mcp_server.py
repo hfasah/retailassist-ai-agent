@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 from .access import OrderAccessError, authorize_order, normalize_email
 from .approvals import RefundArgs, TicketArgs, approval_store, propose_refund, propose_ticket
 from .refunds import RefundReason
+from .schemas import Details, Email, Message, Order, OrderId, RefundOutcome, Sku
 from .tickets import TicketCategory
 
 log = logging.getLogger("retailassist.mcp")
@@ -43,9 +44,6 @@ a request ID; use get_request_status to see whether it has been approved. Nothin
 
 mcp = MCPServer("retailassist", title="RetailAssist", instructions=INSTRUCTIONS, version="0.1.0")
 
-OrderId = Annotated[str, Field(description="Order number, e.g. ORD-5001", min_length=3, max_length=20)]
-Email = Annotated[str, Field(description="Email address the order was placed with",
-                             pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=254)]
 RequestId = Annotated[str, Field(description="Request ID from create_ticket or request_refund, e.g. APR-0001",
                                   pattern=r"^APR-\d+$")]
 # Failed lookups from MCP clients are rate-limited together (access.py).
@@ -53,30 +51,6 @@ CLIENTS = ("mcp",)
 
 
 # --- Output models (sent as structured content) ---------------------------------------------------
-
-class OrderItem(BaseModel):
-    sku: str
-    name: str
-    quantity: int
-    unit_price: float
-
-
-class Order(BaseModel):
-    order_id: str
-    order_date: str
-    status: str
-    items: list[OrderItem]
-    subtotal: float
-    shipping_method: str
-    shipping_cost: float
-    tax: float
-    total: float
-    carrier: str | None
-    tracking_number: str | None
-    estimated_delivery: str | None
-    delivered_date: str | None
-    ship_to: dict[str, str]
-
 
 class RequestStatus(BaseModel):
     request_id: str = Field(description="Use with get_request_status")
@@ -87,23 +61,7 @@ class RequestStatus(BaseModel):
     result: dict | None = Field(description="What happened once approved, e.g. the ticket ID")
 
 
-class RefundItem(BaseModel):
-    sku: str
-    name: str
-    quantity: int
-    amount: float
-
-
-class RefundResult(BaseModel):
-    eligible: bool = Field(description="Whether the request qualifies under the refund policy")
-    reasons: list[str] = Field(description="Why it does or doesn't qualify, in plain words")
-    items: list[RefundItem] = Field(description="Items included in the refund")
-    estimated_refund: float = Field(description="Estimated amount in USD, after any return shipping fee")
-    return_shipping_fee: float
-    ticket_id: str | None = Field(description="The refund ticket, once a request has been approved")
-    already_requested: bool = Field(description="True if a refund request for this order was already open")
-    request_id: str | None = Field(description="The request waiting for staff approval, if any")
-    next_step: str
+RefundResult = RefundOutcome
 
 
 # --- Tools ----------------------------------------------------------------------------------------
@@ -135,9 +93,8 @@ def lookup_order(order_id: OrderId, email: Email) -> Order:
 def create_ticket(
     email: Email,
     category: Annotated[TicketCategory, Field(description="The kind of request")],
-    message: Annotated[str, Field(description="What the customer needs, for the support team", min_length=1,
-                                  max_length=4000)],
-    order_id: Annotated[str | None, Field(description="Related order number, if any. Must match the email.")] = None,
+    message: Annotated[Message, Field(description="What the customer needs, for the support team")],
+    order_id: Annotated[OrderId | None, Field(description="Related order number, if any. Must match the email.")] = None,
 ) -> RequestStatus:
     """Ask for a support ticket for a team member to follow up on, such as a cancellation, address change,
     or missing package. A staff member approves it before it's opened; check with get_request_status.
@@ -155,9 +112,9 @@ def request_refund(
     order_id: OrderId,
     email: Email,
     reason: Annotated[RefundReason, Field(description="Why the customer wants a refund")],
-    skus: Annotated[list[str] | None, Field(description="SKUs to refund, e.g. ['SKU-1001']. Omit for the whole order.",
+    skus: Annotated[list[Sku] | None, Field(description="SKUs to refund, e.g. ['SKU-1001']. Omit for the whole order.",
                                             max_length=20)] = None,
-    details: Annotated[str, Field(description="Anything else the support team should know", max_length=2000)] = "",
+    details: Annotated[Details, Field(description="Anything else the support team should know")] = "",
 ) -> RefundResult:
     """Check a refund request against the store's refund policy and, if it qualifies, send it to a staff
     member to approve. Returns whether it qualifies, why, and the estimated refund amount.

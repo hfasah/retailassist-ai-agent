@@ -9,16 +9,26 @@ against the policy index and turns valid ones into numbered sources.
 """
 
 import json
+import logging
 import os
 
 from google import genai
 from google.genai import errors, types
+from pydantic import ValidationError
 
 from ..rag import PolicyHit
 from .base import (LLMAuthError, LLMRateLimitError, LLMUnavailableError, ModelT, ModelTurn, StopReason, ToolCall,
                    ToolResult)
 
 DEFAULT_MODEL = "gemini-3.8-flash"
+log = logging.getLogger("retailassist.llm.gemini")
+
+# The JSON Schema keywords Gemini supports (see GenerateContentConfig.response_json_schema). Others are
+# dropped from what we send, and constraints like patterns are described in words instead; the server
+# validates every tool call and response against the full schema anyway.
+SUPPORTED_SCHEMA_KEYS = {"$id", "$defs", "$ref", "$anchor", "type", "format", "title", "description", "enum", "items",
+                         "prefixItems", "minItems", "maxItems", "minimum", "maximum", "anyOf", "oneOf", "properties",
+                         "additionalProperties", "required", "propertyOrdering"}
 
 CITATION_INSTRUCTIONS = """
 Policy sections you're given are labeled with an ID, like refund-policy#refunds. When a sentence in your \
@@ -50,6 +60,7 @@ class GeminiLLM:
         return self._client
 
     def classify(self, system: str, prompt: str, schema: type[ModelT]) -> ModelT | None:
+        """Structured output: Gemini is constrained to the schema, and the reply is validated against it here."""
         with _translate_errors():
             response = self.client.models.generate_content(
                 model=self.model,
@@ -57,15 +68,19 @@ class GeminiLLM:
                 config=types.GenerateContentConfig(
                     system_instruction=system,
                     response_mime_type="application/json",
-                    response_schema=schema,
+                    response_json_schema=gemini_schema(schema.model_json_schema()),
                     thinking_config=types.ThinkingConfig(thinking_level="low"),
                 ),
             )
-        return response.parsed if isinstance(response.parsed, schema) else None
+        try:
+            return schema.model_validate_json(response.text or "")
+        except ValidationError as e:
+            log.warning("Gemini's %s output didn't match the schema: %s", schema.__name__, e)
+            return None
 
     def respond(self, system: str, messages: list[dict], tools: list) -> ModelTurn:
         declarations = [types.FunctionDeclaration(name=t["name"], description=t["description"],
-                                                  parameters_json_schema=t["input_schema"])
+                                                  parameters_json_schema=gemini_schema(t["input_schema"]))
                         for t in (tool.to_dict() for tool in tools)]
         with _translate_errors():
             response = self.client.models.generate_content(
@@ -125,6 +140,38 @@ class GeminiLLM:
                 function_response["id"] = result.call.id
             parts.append({"function_response": function_response})
         return {"role": "user", "parts": parts}
+
+
+def gemini_schema(schema):
+    """A JSON schema limited to the keywords Gemini supports, with dropped constraints put into words."""
+    if isinstance(schema, list):
+        return [gemini_schema(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    hints = []
+    if "pattern" in schema:
+        hints.append(f"must match the regular expression {schema['pattern']}")
+    if "minLength" in schema:
+        hints.append(f"at least {schema['minLength']} characters")
+    if "maxLength" in schema:
+        hints.append(f"at most {schema['maxLength']} characters")
+    if "exclusiveMinimum" in schema:
+        hints.append(f"greater than {schema['exclusiveMinimum']}")
+    out = {}
+    for key, value in schema.items():
+        if key not in SUPPORTED_SCHEMA_KEYS:
+            continue
+        if key in {"properties", "$defs"}:
+            out[key] = {name: gemini_schema(sub) for name, sub in value.items()}
+        elif key in {"items", "anyOf", "oneOf", "prefixItems", "additionalProperties"}:
+            out[key] = gemini_schema(value)
+        else:
+            out[key] = value
+    if hints:
+        description = out.get("description", "").rstrip(".")
+        out["description"] = (f"{description}. " if description else "") + "Must be " + ", ".join(hints) + "."
+        out["description"] = out["description"].replace("Must be must match", "Must match")
+    return out
 
 
 def _format_hit(hit: PolicyHit) -> str:

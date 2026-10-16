@@ -100,6 +100,12 @@ Refunds go back to your original payment method[1] and usually show up within 5�
 
 **Human approval for write actions.** Nothing the agent does changes data until a person approves it. When the model asks to open a ticket or request a refund, `review_tool_calls` saves the request in `data/approvals.db` and `approval_gate` pauses the graph. The customer gets "Before I go ahead, a team member needs to approve this: …", and `/chat` returns the request under `pending_approvals`. New messages in that conversation get 409 until it's decided. A staff member reviews it with `GET /approvals` and decides with `POST /approvals/{id}`. The graph then resumes from its checkpoint, runs the action only if approved, and the model tells the customer the outcome, which the customer sees with `GET /chat/{session_id}`. A refund that doesn't qualify under the policy skips approval, because nothing would be written. The same queue holds write requests from the MCP server. In the terminal chat, the conversation waits and you can press Enter to check whether it's been decided.
 
+**Validated tool inputs and outputs.** Tool arguments are typed with shared constraints (`src/retailassist/schemas.py`): order numbers look like `ORD-5001`, emails like an email, SKUs like `SKU-1001`, and text fields have length limits. Unknown arguments are rejected. The same types are used by the agent's tools, the MCP server, and the approval queue, and the constraints go into the JSON schemas the models see.
+- **Inputs:** before anything runs, `review_tool_calls` validates every call and normalizes it (`" ord-5003"` becomes `ORD-5003`). A bad call never reaches the access checks, staff, or the data. The model gets one line per bad field, such as `order_id: should look like ORD-5001 (got "5003")`, so it can fix the call or ask the customer.
+- **Gemini schemas:** Gemini only supports some JSON Schema keywords, so its schemas leave out `pattern` and length limits and describe them in the field's text instead. The server still enforces them.
+- **Tool outputs:** tools return output models (`Order`, `Product`, `RefundOutcome`, ...). Building them validates the data, and they keep out what the model doesn't need, such as the customer's stored email.
+- **Classification output:** the classifier uses structured output on both providers, and the reply is checked against the `Classification` model. A malformed order number or email is dropped rather than trusted. If the output is unusable, the message is treated as `other` and a warning is logged.
+
 **Order access.** Every order lookup, in the agent, the API, and the MCP server, goes through `src/retailassist/access.py`:
 - The order number must match the email it was placed with. A wrong number and a wrong email get the same answer, so nobody can find out which orders exist.
 - After 5 misses in 15 minutes, order lookups are paused for that conversation and for that client IP (and for MCP clients as a group). Behind a proxy, run uvicorn with `--proxy-headers` so the limit applies to customers, not the proxy. The counter is in memory, so with several server instances each one keeps its own.
@@ -191,6 +197,7 @@ src/retailassist/
 ├── agent.py   # terminal chat
 ├── api.py     # FastAPI app
 ├── mcp_server.py # MCP server: lookup_order, create_ticket, request_refund, get_request_status
+├── schemas.py # shared input types (OrderId, Email, Sku, ...) and tool output models
 ├── access.py  # who may see an order: email match, lockout after misses, one customer per conversation
 ├── approvals.py # approval queue for write actions, and running them once approved
 ├── refunds.py # refund eligibility rules from the refund policy

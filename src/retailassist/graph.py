@@ -11,9 +11,10 @@ Each customer message runs through:
 - retrieve:   semantic search over the policy documents (vector database), plus matching products and
               the customer's order, attached to the customer's message as citable sources.
 - call_model: the model answers, and may ask for tools.
-- review_tool_calls: checks every requested tool call before anything runs. Order numbers must match
-              the customer's email (access.py), and write actions (tickets, refunds) become requests
-              for a person to approve (approvals.py).
+- review_tool_calls: checks every requested tool call before anything runs. Arguments must match the
+              tool's schema (tools.validate_args), order numbers must match the customer's email
+              (access.py), and write actions (tickets, refunds) become requests for a person to
+              approve (approvals.py).
 - approval_gate: pauses the conversation with a LangGraph interrupt until staff approve or reject
               each request, then lets it continue (RetailAssistant.resume).
 - tool_call:  runs the allowed tools, and approved write actions, and sends the results back to call_model.
@@ -38,14 +39,15 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, field_validator
 
 from .access import OTHER_CUSTOMER, OrderAccessError, authorize_order, normalize_email
 from .approvals import ApprovalStore, approval_store, propose_refund, propose_ticket, public_view, run_action
 from .llm import LLM, ToolCall, ToolResult, get_llm
 from .rag import PolicyIndex, get_policy_index
 from .store import DATA_DIR, PRODUCTS
-from .tools import ALL_TOOLS, WRITE_TOOLS
+from .schemas import EMAIL_PATTERN, ORDER_ID_PATTERN, ApprovalOutcome, RefundOutcome, is_valid
+from .tools import ALL_TOOLS, WRITE_TOOLS, ToolInputError, validate_args
 
 MAX_TOOL_ROUNDS = 8
 
@@ -88,10 +90,29 @@ Intent = Literal["product_question", "order_status", "policy_question", "support
 
 
 class Classification(BaseModel):
+    """The classifier's structured output. The intent must be valid; extracted details that aren't
+    well-formed are dropped (set to None) rather than failing the whole classification."""
     intent: Intent
     order_id: str | None = Field(None, description="Order number, e.g. ORD-5001")
     email: str | None = Field(None, description="Customer email address")
     product_query: str | None = Field(None, description="A few keywords to search the catalog with")
+
+    @field_validator("order_id", mode="before")
+    @classmethod
+    def _order_id(cls, value):
+        value = value.strip().upper() if isinstance(value, str) else None
+        return value if is_valid(ORDER_ID_PATTERN, value) else None
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def _email(cls, value):
+        value = value.strip().lower() if isinstance(value, str) else None
+        return value if is_valid(EMAIL_PATTERN, value) and len(value) <= 254 else None
+
+    @field_validator("product_query", mode="before")
+    @classmethod
+    def _product_query(cls, value):
+        return value.strip()[:200] or None if isinstance(value, str) else None
 
 
 class ConversationState(TypedDict, total=False):
@@ -113,7 +134,8 @@ class ConversationState(TypedDict, total=False):
     context: str
     tool_rounds: int
     pending_tool_calls: list[dict]
-    # From review_tool_calls, keyed by tool call ID: {"error": ...}, {"result": ...}, or {"approval": id}.
+    # From review_tool_calls, keyed by tool call ID: {"error": ...}, {"result": ...}, {"approval": id},
+    # or {"args": validated arguments} for a read-only tool that may run.
     call_reviews: dict[str, dict]
     stop_reason: str | None
     draft: str
@@ -199,6 +221,13 @@ def citations_from_markers(text: str, policy_index: PolicyIndex) -> tuple[str, l
 
 # --- Graph ----------------------------------------------------------------------------------------
 
+def _serialize(output):
+    """Tool outputs go to the model as text: output models as JSON, policy hits as they are."""
+    if isinstance(output, BaseModel):
+        return output.model_dump_json(exclude_none=True)
+    return output
+
+
 def _clients(config: RunnableConfig) -> tuple[str, ...]:
     """Keys that failed order lookups are rate-limited under: the conversation, and the client's IP if known."""
     configurable = config.get("configurable", {})
@@ -255,11 +284,11 @@ def build_graph(llm: LLM, checkpointer: BaseCheckpointSaver | None = None, polic
         result = llm.classify(CLASSIFY_PROMPT, prompt, Classification) or Classification(intent="other")
         update: dict = {"intent": result.intent, "product_query": result.product_query,
                         "new_order_details": bool(result.order_id or result.email)}
-        # Remember order numbers and emails for later turns.
+        # Remember order numbers and emails for later turns (already normalized by Classification).
         if result.order_id:
-            update["known_order_id"] = result.order_id.strip().upper()
+            update["known_order_id"] = result.order_id
         if result.email:
-            update["known_email"] = result.email.strip().lower()
+            update["known_email"] = result.email
         return update
 
     def retrieve(state: ConversationState, config: RunnableConfig) -> dict:
@@ -305,31 +334,29 @@ def build_graph(llm: LLM, checkpointer: BaseCheckpointSaver | None = None, polic
         return "respond"
 
     def review_tool_calls(state: ConversationState, config: RunnableConfig) -> dict:
-        """Check order access for every call, and turn write actions into requests for approval."""
+        """Validate every call, check order access, and turn write actions into requests for approval."""
         access = _Access(state, config)
         reviews: dict[str, dict] = {}
         for call in (ToolCall(**c) for c in state["pending_tool_calls"]):
             try:
                 reviews[call.id] = review(call, access, config)
-            except OrderAccessError as e:
+            except (ToolInputError, OrderAccessError) as e:
                 reviews[call.id] = {"error": str(e)}
-            except ValidationError as e:
-                reviews[call.id] = {"error": f"Invalid arguments for {call.name}: {e.errors(include_url=False)}"}
         return {"call_reviews": reviews, **access.update()}
 
     def review(call: ToolCall, access: _Access, config: RunnableConfig) -> dict:
-        args = call.args
+        args = validate_args(call.name, call.args)  # checked and normalized before anything else looks at them
         if call.name not in WRITE_TOOLS:
             if args.get("order_id"):
-                access.order(args["order_id"], args.get("email", ""))
-            return {}
+                access.order(args["order_id"], args["email"])
+            return {"args": args}
         action = WRITE_TOOLS[call.name](args)
         order = access.order(action.order_id, action.email) if action.order_id else None
         access.check_email(action.email)
         if call.name == "request_refund":
             outcome, proposal = propose_refund(action, order)
             if proposal is None:  # not eligible, or already requested: nothing to write, so nothing to approve
-                return {"result": json.dumps(outcome)}
+                return {"result": RefundOutcome.model_validate(outcome).model_dump_json(exclude_none=True)}
         else:
             proposal = propose_ticket(action, order)
         approval = approvals.submit(proposal, source="chat", thread_id=config["configurable"]["thread_id"],
@@ -365,10 +392,10 @@ def build_graph(llm: LLM, checkpointer: BaseCheckpointSaver | None = None, polic
                     results.append(ToolResult(call, review["result"]))
                 elif "approval" in review:
                     results.append(ToolResult(call, json.dumps(decided(approvals.get(review["approval"])))))
-                elif tool is None or call.name in WRITE_TOOLS:
+                elif tool is None or call.name in WRITE_TOOLS or "args" not in review:
                     raise ValueError(f"Unknown tool: {call.name}")
                 else:
-                    results.append(ToolResult(call, tool.call(call.args)))
+                    results.append(ToolResult(call, _serialize(tool.call(review["args"]))))
             except Exception as e:  # report tool failures to the model instead of crashing the turn
                 results.append(ToolResult(call, str(e), is_error=True))
         return {"messages": [llm.tool_results_message(results)], "pending_tool_calls": [], "call_reviews": {},
@@ -379,9 +406,11 @@ def build_graph(llm: LLM, checkpointer: BaseCheckpointSaver | None = None, polic
         view = {"request_id": approval["approval_id"], "approved": approval["status"] == "approved",
                 "note_from_team": approval["note"]}
         if approval["status"] != "approved":
-            return view | {"message": "A team member declined this request, so nothing was changed."}
-        # On a retried run the action has already happened; don't do it twice.
-        return view | (approval["result"] or run_action(approval, approvals))
+            view["message"] = "A team member declined this request, so nothing was changed."
+        else:
+            # On a retried run the action has already happened; don't do it twice.
+            view |= approval["result"] or run_action(approval, approvals)
+        return ApprovalOutcome.model_validate(view).model_dump(exclude_none=True)
 
     def respond(state: ConversationState) -> dict:
         update: dict = {"pending_tool_calls": []}

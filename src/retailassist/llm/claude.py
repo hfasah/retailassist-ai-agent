@@ -4,14 +4,17 @@ Policy sections are sent as `search_result` blocks, so the API attaches citation
 passages Claude used.
 """
 
+import logging
 import os
 
 import anthropic
+from pydantic import ValidationError
 
 from ..rag import PolicyHit
 from .base import LLMAuthError, LLMRateLimitError, LLMUnavailableError, ModelT, ModelTurn, ToolCall, ToolResult
 
 DEFAULT_MODEL = "claude-opus-5-5"
+log = logging.getLogger("retailassist.llm.claude")
 # If a safety classifier declines, retry on Anthropic's recommended fallback model.
 FALLBACK = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
 
@@ -34,17 +37,22 @@ class ClaudeLLM:
         return self._client
 
     def classify(self, system: str, prompt: str, schema: type[ModelT]) -> ModelT | None:
-        with _translate_errors():
-            response = self.client.beta.messages.parse(
-                model=self.model,
-                max_tokens=4000,
-                system=system,
-                messages=[{"role": "user", "content": prompt}],
-                output_format=schema,
-                output_config={"effort": "low"},
-                **FALLBACK,
-            )
-        return response.parsed_output
+        """Structured output: Claude is constrained to the schema, and the SDK validates the reply against it."""
+        try:
+            with _translate_errors():
+                response = self.client.beta.messages.parse(
+                    model=self.model,
+                    max_tokens=4000,
+                    system=system,
+                    messages=[{"role": "user", "content": prompt}],
+                    output_format=schema,
+                    output_config={"effort": "low"},
+                    **FALLBACK,
+                )
+        except ValidationError as e:  # e.g. a refusal or a truncated reply that isn't valid output
+            log.warning("Claude's %s output didn't match the schema: %s", schema.__name__, e)
+            return None
+        return response.parsed_output if isinstance(response.parsed_output, schema) else None
 
     def respond(self, system: str, messages: list[dict], tools: list) -> ModelTurn:
         with _translate_errors():

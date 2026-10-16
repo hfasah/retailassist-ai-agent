@@ -25,7 +25,8 @@ EMPTY_CLASSIFICATION = {"intent": "other", "order_id": None, "email": None, "pro
 class FakeClaude:
     """A fake Anthropic API.
 
-    Classification requests (the ones with a structured output format) get `classification` back as JSON.
+    Classification requests (the ones with a structured output format) get `classification` back as JSON
+    (a string is sent as is, to test invalid output).
     Other requests get the next item from `replies`: a string becomes a text answer, a dict becomes a
     tool call ({"name": ..., "input": ...}), a list becomes the response's content blocks as given, and
     "REFUSE" becomes a refusal. When `replies` runs out, the answer is "Done.".
@@ -45,8 +46,8 @@ class FakeClaude:
                 "stop_sequence": None, "usage": {"input_tokens": 10, "output_tokens": 5}}
         if "format" in body.get("output_config", {}):
             self.classify_requests.append(body)
-            return httpx2.Response(200, json={**base, "stop_reason": "end_turn",
-                                              "content": [{"type": "text", "text": json.dumps(self.classification)}]})
+            text = self.classification if isinstance(self.classification, str) else json.dumps(self.classification)
+            return httpx2.Response(200, json={**base, "stop_reason": "end_turn", "content": [{"type": "text", "text": text}]})
 
         self.requests.append(body)
         reply = self.replies.pop(0) if self.replies else "Done."
@@ -105,12 +106,10 @@ class FakeGemini:
     def generate_content(self, *, model, contents, config):
         if self.error is not None:
             raise self.error
-        if config.response_schema is not None:
+        if config.response_json_schema is not None:
             self.classify_requests.append({"contents": contents, "config": config})
-            text = json.dumps(self.classification)
-            response = self._response([{"text": text}])
-            response.parsed = config.response_schema.model_validate_json(text)
-            return response
+            text = self.classification if isinstance(self.classification, str) else json.dumps(self.classification)
+            return self._response([{"text": text}])
 
         self.requests.append({"contents": [c.model_dump(mode="json", exclude_none=True) for c in contents],
                               "config": config})

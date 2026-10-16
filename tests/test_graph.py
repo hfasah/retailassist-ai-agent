@@ -305,6 +305,53 @@ def test_failed_lookups_lock_the_client_across_conversations(fake_model):
     assert not fake_model.tool_result(-1)[1]
 
 
+# --- Validation -----------------------------------------------------------------------------------
+
+def tool_output(fake, request: int):
+    output, is_error = fake.tool_result(request)
+    return (json.loads(output) if isinstance(output, str) and output.startswith("{") else output), is_error
+
+
+def test_bad_tool_arguments_are_explained_so_the_model_can_fix_them(fake_model):
+    fake_model.replies = [{"name": "get_order_status", "input": {"order_id": "5003", "email": EMAIL}},
+                          {"name": "get_order_status", "input": {"order_id": "ord-5003", "email": EMAIL.upper()}},
+                          "Found it."]
+    assert RetailAssistant(fake_model.llm(), InMemorySaver()).ask(new_thread(), "where's 5003?")["reply"] == "Found it."
+    error, is_error = tool_output(fake_model, 1)
+    assert is_error and "order_id: should look like ORD-5001" in error
+    # The corrected (and normalized) call ran, and returned the validated output model.
+    order, is_error = tool_output(fake_model, 2)
+    assert not is_error and order["order_id"] == "ORD-5003" and "customer" not in order and order["customer_name"]
+
+
+def test_wrongly_typed_arguments_dont_crash_the_turn(fake_model):
+    fake_model.replies = [{"name": "get_order_status", "input": {"order_id": 5003, "email": None}},
+                          {"name": "create_support_ticket", "input": {"email": EMAIL, "category": "refund-please",
+                                                                      "summary": ""}},
+                          "Sorry."]
+    thread = new_thread()
+    assert RetailAssistant(fake_model.llm(), InMemorySaver()).ask(thread, "hi")["reply"] == "Sorry."
+    error, is_error = tool_output(fake_model, 1)
+    assert is_error and "order_id: Input should be a valid string" in error and "email:" in error
+    error, is_error = tool_output(fake_model, 2)
+    assert is_error and "category:" in error and "summary:" in error
+    assert approval_store.list(thread_id=thread) == []  # invalid write requests never reach staff
+
+
+def test_classification_drops_malformed_details(fake_model):
+    fake_model.classification = {"intent": "order_status", "order_id": "my order", "email": "not an email",
+                                 "product_query": None}
+    RetailAssistant(fake_model.llm(), InMemorySaver()).ask(new_thread(), "where's my order?")
+    assert "<retrieved_context>" not in "".join(fake_model.texts(0, 0))  # nothing was looked up
+
+
+@pytest.mark.parametrize("bad", ["not json", '{"intent": "shopping_spree"}'])
+def test_invalid_classification_falls_back_to_other(fake_model, bad):
+    fake_model.classification = bad
+    result = RetailAssistant(fake_model.llm(), InMemorySaver()).ask(new_thread(), "hi")
+    assert result["intent"] == "other" and result["reply"] == "Done."
+
+
 # --- Claude: native citations ---------------------------------------------------------------------
 
 def test_claude_policy_question_retrieves_and_cites(fake_claude):
@@ -362,6 +409,15 @@ def test_gemini_sends_thought_signatures_and_call_ids_back(fake_gemini):
     assert model_turn["role"] == "model"
     assert model_turn["parts"][0]["thought_signature"] == "c2lnbmF0dXJl"
     assert tool_turn["parts"][0]["function_response"]["id"] == "call_1"
+
+
+def test_gemini_gets_only_supported_schema_keywords(fake_gemini):
+    RetailAssistant(fake_gemini.llm(), InMemorySaver()).ask(new_thread(), "hi")
+    declarations = {d.name: d for d in fake_gemini.requests[0]["config"].tools[0].function_declarations}
+    order_id = declarations["get_order_status"].parameters_json_schema["properties"]["order_id"]
+    assert "pattern" not in order_id and "ORD-" in order_id["description"]
+    classify_schema = fake_gemini.classify_requests[0]["config"].response_json_schema
+    assert set(classify_schema["properties"]) == {"intent", "order_id", "email", "product_query"}
 
 
 def test_gemini_tools_are_declared_with_json_schema(fake_gemini):
