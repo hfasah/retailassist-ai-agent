@@ -34,7 +34,7 @@ def main() -> None:
         if not user_text:
             continue
         try:
-            reply = assistant.ask(session_id, user_text)["reply"]
+            result = assistant.ask(session_id, user_text)
         except (anthropic.AuthenticationError, anthropic.CredentialsError):
             print("Error: invalid or missing API key. Set ANTHROPIC_API_KEY in your environment.")
             break
@@ -53,7 +53,10 @@ def main() -> None:
         except anthropic.APIStatusError as e:
             print(f"Assistant: Something went wrong (HTTP {e.status_code}). Please try again.\n")
             continue
-        print(f"Assistant: {reply}\n")
+        print(f"Assistant: {result['reply']}")
+        for citation in result["citations"]:
+            print(f"  [{citation['number']}] {citation['title']} ({citation['source']})")
+        print()
 
     print(f"To continue this conversation later: retailassist --session {session_id}")
 

@@ -8,11 +8,11 @@ Each customer message runs through:
                               tool_call
 
 - classify:   Claude labels the intent and pulls out order number, email, and product keywords.
-- retrieve:   looks up matching policy sections, products, and the customer's order (no model call),
-              and adds them to the conversation alongside the customer's message.
+- retrieve:   semantic search over the policy documents (vector database), plus matching products and
+              the customer's order. Policy sections go in as search_result blocks so Claude can cite them.
 - call_model: Claude answers, and may ask for tools.
 - tool_call:  runs the requested tools and sends the results back to call_model.
-- respond:    turns Claude's last reply into the text for the customer.
+- respond:    turns Claude's last reply into the text for the customer, with numbered source citations.
 
 Conversation state is saved by a LangGraph checkpointer (SQLite by default), keyed by thread ID,
 so a conversation picks up where it left off even after a restart.
@@ -31,7 +31,8 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
 
-from .store import DATA_DIR, POLICIES, PRODUCTS
+from .rag import PolicyIndex, get_policy_index
+from .store import DATA_DIR, PRODUCTS
 from .tools import ALL_TOOLS, find_order
 
 MODEL = "claude-opus-5-5"
@@ -42,13 +43,15 @@ FALLBACK = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"
 SYSTEM_PROMPT = """You are RetailAssist, a friendly shopping and support assistant for an outdoor gear store.
 
 Help customers find products, check prices and stock, track their orders, and understand the store's \
-return and shipping policies. Use your tools rather than guessing; if a tool finds nothing, say so. Base \
-answers about returns, refunds, and shipping on the policy text, and use the order's dates and status to \
-say how the policy applies to that customer. To look up an order, ask for the order number and the \
-email it was placed with. Keep replies short and conversational.
+return and shipping policies. Use your tools rather than guessing; if a tool finds nothing, say so. \
+Answer questions about returns, refunds, and shipping only from the store's policy documents, and use \
+the order's dates and status to say how the policy applies to that customer. If the policy documents \
+don't cover a question, say so rather than filling the gap yourself. To look up an order, ask for the \
+order number and the email it was placed with. Keep replies short and conversational.
 
-Some customer messages come with a <retrieved_context> block that the system looked up automatically \
-for that message. Use it when it's relevant, and use your tools for anything it doesn't cover.
+Some customer messages come with policy search results and a <retrieved_context> block that the system \
+looked up automatically for that message. Use them when they're relevant, and use your tools (including \
+search_store_policies) for anything they don't cover.
 
 You can't start returns, issue refunds, cancel orders, or change addresses yourself. When a customer \
 wants one of those, tell them whether the policy allows it, and offer to open a support ticket so a team \
@@ -87,10 +90,12 @@ class ConversationState(TypedDict, total=False):
     user_input: str
     intent: Intent
     product_query: str | None
+    policy_sources: list[str]
     context: str
     tool_rounds: int
     stop_reason: str | None
     draft: str
+    citations: list[dict]
     reply: str
 
 
@@ -111,31 +116,6 @@ def _words(text: str) -> set[str]:
     return words
 
 
-def _policy_sections() -> list[tuple[str, str]]:
-    sections = []
-    for text in POLICIES.values():
-        title = text.splitlines()[0].lstrip("# ").strip()
-        for chunk in text.split("\n## ")[1:]:
-            heading = chunk.splitlines()[0].strip()
-            sections.append((f"{title} > {heading}", "## " + chunk.strip()))
-    return sections
-
-
-POLICY_SECTIONS = _policy_sections()
-
-
-def search_policies(query: str, limit: int = 3) -> list[str]:
-    """Return the policy sections that share the most words with the query."""
-    query_words = _words(query)
-    scored = []
-    for name, body in POLICY_SECTIONS:
-        score = len(query_words & _words(body))
-        if score:
-            scored.append((score, name, body))
-    scored.sort(key=lambda s: -s[0])
-    return [f"[{name}]\n{body}" for _, name, body in scored[:limit]]
-
-
 def search_catalog(query: str, limit: int = 5) -> list[dict]:
     """Return the products that share the most words with the query."""
     query_words = _words(query)
@@ -150,7 +130,9 @@ def search_catalog(query: str, limit: int = 5) -> list[dict]:
 
 # --- Graph ----------------------------------------------------------------------------------------
 
-def build_graph(client: anthropic.Anthropic, checkpointer: BaseCheckpointSaver | None = None):
+def build_graph(client: anthropic.Anthropic, checkpointer: BaseCheckpointSaver | None = None,
+                policy_index: PolicyIndex | None = None):
+    policy_index = policy_index or get_policy_index()
     tools_by_name = {tool.name: tool for tool in ALL_TOOLS}
     tool_definitions = [tool.to_dict() for tool in ALL_TOOLS]
 
@@ -182,11 +164,9 @@ def build_graph(client: anthropic.Anthropic, checkpointer: BaseCheckpointSaver |
         intent = state["intent"]
         user_input = state["user_input"]
         parts = []
-
+        policy_hits = []
         if intent in {"policy_question", "support_request", "order_status"}:
-            sections = search_policies(user_input)
-            if sections:
-                parts.append("Relevant policy sections:\n\n" + "\n\n".join(sections))
+            policy_hits = policy_index.search(user_input)
 
         if intent == "product_question":
             products = search_catalog(state.get("product_query") or user_input)
@@ -201,11 +181,12 @@ def build_graph(client: anthropic.Anthropic, checkpointer: BaseCheckpointSaver |
                 parts.append(f"No order matches {state['known_order_id']} and {state['known_email']}.")
 
         context = "\n\n".join(parts)
-        content: list[dict] = []
+        content: list[dict] = [hit.to_search_result() for hit in policy_hits]
         if context:
             content.append({"type": "text", "text": f"<retrieved_context>\n{context}\n</retrieved_context>"})
         content.append({"type": "text", "text": user_input})
-        return {"context": context, "messages": [{"role": "user", "content": content}]}
+        return {"context": context, "policy_sources": [hit.chunk.source for hit in policy_hits],
+                "messages": [{"role": "user", "content": content}]}
 
     def call_model(state: ConversationState) -> dict:
         response = client.beta.messages.create(
@@ -217,8 +198,8 @@ def build_graph(client: anthropic.Anthropic, checkpointer: BaseCheckpointSaver |
             output_config={"effort": "medium"},
             **FALLBACK,
         )
-        draft = "".join(block.text for block in response.content if block.type == "text")
-        update: dict = {"stop_reason": response.stop_reason, "draft": draft}
+        draft, citations = _text_with_citations(response.content)
+        update: dict = {"stop_reason": response.stop_reason, "draft": draft, "citations": citations}
         # A refused or empty reply can't go back into the history; the API rejects empty assistant turns.
         if response.stop_reason != "refusal" and response.content:
             # Plain dicts, exactly as the API returned them, so the checkpointer can save them.
@@ -255,15 +236,16 @@ def build_graph(client: anthropic.Anthropic, checkpointer: BaseCheckpointSaver |
                 for b in pending]}]
 
         if state["stop_reason"] == "refusal":
-            update["reply"] = "Sorry, I can't help with that request."
+            update.update(reply="Sorry, I can't help with that request.", citations=[])
         elif state.get("draft"):
             update["reply"] = state["draft"]
         else:
-            update["reply"] = "Sorry, I wasn't able to finish that. Could you try asking another way?"
+            update.update(reply="Sorry, I wasn't able to finish that. Could you try asking another way?", citations=[])
         return update
 
     def start_turn(state: ConversationState) -> dict:
-        return {"customer_inputs": [state["user_input"]], "tool_rounds": 0, "stop_reason": None, "draft": ""}
+        return {"customer_inputs": [state["user_input"]], "tool_rounds": 0, "stop_reason": None, "draft": "",
+                "citations": [], "policy_sources": []}
 
     builder = StateGraph(ConversationState)
     builder.add_node("start_turn", start_turn)
@@ -280,6 +262,34 @@ def build_graph(client: anthropic.Anthropic, checkpointer: BaseCheckpointSaver |
     builder.add_edge("tool_call", "call_model")
     builder.add_edge("respond", END)
     return builder.compile(checkpointer=checkpointer)
+
+
+def _text_with_citations(content) -> tuple[str, list[dict]]:
+    """Join Claude's text blocks, adding [1]-style markers where it cited a policy passage.
+
+    Returns the text and the list of sources, numbered in the order they're first cited.
+    """
+    sources: dict[str, dict] = {}
+    text = ""
+    for block in content:
+        if block.type != "text":
+            continue
+        text += block.text
+        markers = []
+        for citation in block.citations or []:
+            if citation.type != "search_result_location":
+                continue
+            source = sources.setdefault(citation.source, {
+                "number": len(sources) + 1, "title": citation.title, "source": citation.source, "quotes": []})
+            if citation.cited_text not in source["quotes"]:
+                source["quotes"].append(citation.cited_text)
+            if source["number"] not in markers:
+                markers.append(source["number"])
+        if markers:
+            # Put markers before any trailing whitespace, so they sit right after the cited sentence.
+            stripped = text.rstrip()
+            text = stripped + "".join(f"[{n}]" for n in markers) + text[len(stripped):]
+    return text.strip(), list(sources.values())
 
 
 def _unanswered_tool_uses(messages: list[dict]) -> list[dict]:
@@ -302,13 +312,15 @@ def sqlite_checkpointer(path: str | os.PathLike | None = None) -> SqliteSaver:
 class RetailAssistant:
     """Runs customer messages through the graph, saving each conversation under its thread ID."""
 
-    def __init__(self, client: anthropic.Anthropic | None = None, checkpointer: BaseCheckpointSaver | None = None):
-        self.graph = build_graph(client or anthropic.Anthropic(), checkpointer or sqlite_checkpointer())
+    def __init__(self, client: anthropic.Anthropic | None = None, checkpointer: BaseCheckpointSaver | None = None,
+                 policy_index: PolicyIndex | None = None):
+        self.graph = build_graph(client or anthropic.Anthropic(), checkpointer or sqlite_checkpointer(), policy_index)
 
     def ask(self, thread_id: str, user_text: str) -> dict:
-        """Send one customer message. Returns the reply and the intent it was classified as."""
+        """Send one customer message. Returns the reply, the intent it was classified as, and the policy
+        sources the reply cites (numbered to match the [n] markers in the reply)."""
         state = self.graph.invoke({"user_input": user_text}, {"configurable": {"thread_id": thread_id}})
-        return {"reply": state["reply"], "intent": state["intent"]}
+        return {"reply": state["reply"], "intent": state["intent"], "citations": state.get("citations", [])}
 
     def has_conversation(self, thread_id: str) -> bool:
         return bool(self.graph.get_state({"configurable": {"thread_id": thread_id}}).values)

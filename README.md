@@ -26,7 +26,7 @@ Interactive docs are at http://localhost:8000/docs.
 
 | Endpoint | Who | What it does |
 |---|---|---|
-| `GET /health` | Anyone | Health check, with product and order counts |
+| `GET /health` | Anyone | Health check, with product, order, and indexed policy-section counts |
 | `POST /chat` | Customers | Send `{"message": "..."}` and get the agent's reply plus a `session_id`. Send the `session_id` back to continue the conversation |
 | `GET /orders/{id}?email=...` | Customers | Order details. The email must match the order, otherwise 404 |
 | `POST /tickets` | Customers | Open a support ticket: `email`, `category`, `message`, and an optional `order_id` |
@@ -49,7 +49,7 @@ curl "localhost:8000/orders/ORD-5003?email=aisha.ferreira@example.com"
 curl localhost:8000/tickets -H "X-API-Key: $RETAILASSIST_STAFF_API_KEY"
 ```
 
-`/chat` replies also include the message's `intent`. Conversations and tickets are saved in SQLite files (`data/conversations.db` and `data/tickets.db` by default), so both survive restarts.
+`/chat` replies also include the message's `intent` and a `citations` list (`number`, `title`, `source`, and the exact `quotes` relied on), numbered to match the `[n]` markers in the reply. Conversations and tickets are saved in SQLite files (`data/conversations.db` and `data/tickets.db` by default), so both survive restarts.
 
 Example conversation:
 
@@ -75,10 +75,17 @@ start_turn → classify → retrieve → call_model ⇄ tool_call
 | Node | What it does |
 |---|---|
 | `classify` | Claude labels the message (`product_question`, `order_status`, `policy_question`, `support_request`, or `other`) and pulls out any order number, email, and product keywords |
-| `retrieve` | Looks up matching policy sections, products, and the customer's order (no model call) and attaches them to the customer's message |
+| `retrieve` | Semantic search over the policy documents, plus matching products and the customer's order (no model call). Policy sections are attached as citable search results |
 | `call_model` | Claude writes the answer, and can ask for tools |
 | `tool_call` | Runs the tools Claude asked for and sends the results back (up to 8 rounds per message) |
-| `respond` | Produces the final reply, including a polite message if Claude declines |
+| `respond` | Produces the final reply with numbered `[1]` citation markers and a list of sources, or a polite message if Claude declines |
+
+**Policy search with citations.** The policy documents are split into one chunk per section, embedded with a small local model (`all-MiniLM-L6-v2`, about 80 MB, downloaded on first run), and stored in a [Chroma](https://www.trychroma.com/) vector database in `data/vectordb/`. The index rebuilds itself when the policy files change. Search matches by meaning, so "how long until my money comes back" finds the Refunds section with no shared keywords. Results go to Claude as [search result blocks](https://platform.claude.com/docs/en/build-with-claude/search-results), so the API itself attaches citations to the exact passages Claude used. Replies come back like:
+
+```
+Refunds go back to your original payment method[1] and usually show up within 5–10 business days.
+  [1] Returns & Refund Policy > Refunds (data/policies/refund-policy.md#refunds)
+```
 
 **Saved conversations.** A LangGraph SQLite checkpointer saves each conversation (`data/conversations.db` by default) under its session ID, so conversations survive restarts. Order numbers and emails a customer mentions are remembered for later messages in the same conversation. The conversation history is only ever appended to, never edited.
 
@@ -91,7 +98,7 @@ Claude is called with the Anthropic SDK directly inside the nodes, using Claude 
 | `search_products` | Keyword search over the catalog, with an optional max price |
 | `get_product_details` | Full details, price, and stock for one SKU |
 | `get_order_status` | Status, items, totals, tracking, and delivery dates for an order. Needs the order number **and** the customer's email, so customers can't look up each other's orders |
-| `get_store_policy` | The full returns & refund policy or shipping FAQ |
+| `search_store_policies` | Semantic search over the policies, for anything the automatic retrieval missed. Results are citable |
 | `create_support_ticket` | Opens a ticket for the support team when a customer wants a return, refund, cancellation, or address change. The agent only does this after the customer agrees |
 
 ## Sample data
@@ -112,12 +119,13 @@ Customer emails use the reserved `example.com` domain. The products and orders c
 ```
 src/retailassist/
 ├── graph.py   # LangGraph agent: nodes, prompts, retrieval, saved state
+├── rag.py     # policy vector index (Chroma) and semantic search
 ├── agent.py   # terminal chat
 ├── api.py     # FastAPI app
 ├── tools.py   # tools the agent can call
 ├── tickets.py # SQLite ticket storage
 └── store.py   # loads the data in data/
-data/          # fictional catalog, orders, and policies
+data/          # fictional catalog, orders, and policies (plus local databases, not in git)
 scripts/       # generate_data.py rebuilds the catalog and orders
 tests/         # tests for the graph, tools, data, and API (no API key needed)
 ```

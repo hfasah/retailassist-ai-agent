@@ -3,7 +3,7 @@ import uuid
 
 from langgraph.checkpoint.memory import InMemorySaver
 
-from retailassist.graph import MAX_TOOL_ROUNDS, RetailAssistant, search_catalog, search_policies, sqlite_checkpointer
+from retailassist.graph import MAX_TOOL_ROUNDS, RetailAssistant, search_catalog, sqlite_checkpointer
 from retailassist.store import ORDERS
 
 EMAIL = ORDERS["ORD-5003"]["customer"]["email"]
@@ -11,11 +11,6 @@ EMAIL = ORDERS["ORD-5003"]["customer"]["email"]
 
 def new_thread() -> str:
     return uuid.uuid4().hex
-
-
-def test_search_policies_finds_relevant_sections():
-    results = search_policies("how long until my refund shows up on my card")
-    assert any("Refunds" in r for r in results)
 
 
 def test_search_catalog_ranks_matches():
@@ -31,11 +26,12 @@ def test_order_turn_runs_every_node(fake_claude):
 
     result = assistant.ask(new_thread(), "Where is ORD-5003? I'm " + EMAIL)
 
-    assert result == {"reply": "It's on its way!", "intent": "order_status"}
+    assert result["reply"] == "It's on its way!"
+    assert result["intent"] == "order_status"
     # retrieve: the order and policy sections were added next to the customer's message.
     first_user_message = fake_claude.requests[0]["messages"][0]["content"]
-    assert "<retrieved_context>" in first_user_message[0]["text"]
-    assert '"order_id": "ORD-5003"' in first_user_message[0]["text"]
+    context = next(b["text"] for b in first_user_message if "<retrieved_context>" in b.get("text", ""))
+    assert '"order_id": "ORD-5003"' in context
     assert first_user_message[-1]["text"].startswith("Where is ORD-5003?")
     # tool_call: the tool ran and its result went back to Claude.
     tool_result = fake_claude.requests[1]["messages"][-1]["content"][0]
@@ -49,6 +45,8 @@ def test_product_question_retrieves_products(fake_claude):
     assistant.ask(new_thread(), "Got anything for rainy hikes?")
     context = fake_claude.requests[0]["messages"][0]["content"][0]["text"]
     assert "Stormshield Rain Jacket" in context
+    # Product questions don't pull in policy sections.
+    assert all(b["type"] == "text" for b in fake_claude.requests[0]["messages"][0]["content"])
 
 
 def test_conversation_persists_across_restarts(fake_claude, tmp_path):
@@ -69,7 +67,8 @@ def test_conversation_persists_across_restarts(fake_claude, tmp_path):
     messages = fake_claude.requests[-1]["messages"]
     assert [m["role"] for m in messages] == ["user", "assistant", "user"]
     # The order number and email from turn one were remembered, so turn two still retrieved the order.
-    assert '"order_id": "ORD-5003"' in messages[-1]["content"][0]["text"]
+    context = next(b["text"] for b in messages[-1]["content"] if "<retrieved_context>" in b.get("text", ""))
+    assert '"order_id": "ORD-5003"' in context
     # The classifier saw the earlier message too.
     assert "Where's ORD-5003?" in fake_claude.classify_requests[-1]["messages"][0]["content"]
 
@@ -106,3 +105,36 @@ def test_tool_round_limit_closes_pending_calls(fake_claude):
     messages = fake_claude.requests[-1]["messages"]
     # The last tool call got an error result before the new customer message.
     assert messages[-2]["content"][0]["is_error"] is True
+
+
+def test_policy_question_retrieves_and_cites(fake_claude):
+    fake_claude.classification = {"intent": "policy_question", "order_id": None, "email": None, "product_query": None}
+    source = "data/policies/refund-policy.md#refunds"
+    fake_claude.replies = [[
+        {"type": "text", "text": "Refunds go back to your original payment method", "citations": [{
+            "type": "search_result_location", "source": source, "title": "Returns & Refund Policy > Refunds",
+            "cited_text": "- Refunds are issued to the **original payment method**...", "search_result_index": 0,
+            "start_block_index": 0, "end_block_index": 1}]},
+        {"type": "text", "text": " and usually show up within 5–10 business days."},
+    ]]
+    assistant = RetailAssistant(fake_claude.client(), InMemorySaver())
+
+    result = assistant.ask(new_thread(), "how long until my money comes back?")
+
+    # retrieve: the matching policy section went in as a citable search_result block.
+    content = fake_claude.requests[0]["messages"][0]["content"]
+    assert content[0]["type"] == "search_result" and content[0]["source"] == source
+    assert content[0]["citations"] == {"enabled": True}
+    assert content[-1]["text"] == "how long until my money comes back?"
+    # respond: the reply carries a numbered marker and the matching source.
+    assert result["reply"] == "Refunds go back to your original payment method[1] and usually show up within 5–10 business days."
+    assert result["citations"] == [{"number": 1, "title": "Returns & Refund Policy > Refunds", "source": source,
+                                    "quotes": ["- Refunds are issued to the **original payment method**..."]}]
+
+
+def test_search_store_policies_tool_results_are_citable(fake_claude):
+    fake_claude.replies = [{"name": "search_store_policies", "input": {"query": "free shipping"}}, "Yes, over $75."]
+    assistant = RetailAssistant(fake_claude.client(), InMemorySaver())
+    assistant.ask(new_thread(), "hi")
+    tool_result = fake_claude.requests[1]["messages"][-1]["content"][0]
+    assert tool_result["content"][0]["type"] == "search_result"

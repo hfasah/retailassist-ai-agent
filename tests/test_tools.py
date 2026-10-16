@@ -1,7 +1,7 @@
 import json
 
 from retailassist.store import ORDERS, PRODUCTS
-from retailassist.tools import get_order_status, get_product_details, get_store_policy, search_products
+from retailassist.tools import get_order_status, get_product_details, search_products, search_store_policies
 
 
 def test_data_loaded():
@@ -45,11 +45,12 @@ def test_order_totals_add_up():
         assert order["total"] == round(subtotal + order["shipping_cost"] + order["tax"], 2)
 
 
-def test_store_policy():
-    assert "30 days of delivery" in get_store_policy.call({"topic": "refunds"})
-    assert "$75" in get_store_policy.call({"topic": "shipping"})
-    schema = get_store_policy.to_dict()["input_schema"]["properties"]["topic"]
-    assert schema["enum"] == ["refunds", "shipping"]
+def test_search_store_policies_returns_citable_results():
+    results = search_store_policies.call({"query": "is shipping free"})
+    assert results[0]["type"] == "search_result"
+    assert results[0]["title"] == "Shipping FAQ > What are the shipping options and costs?"
+    assert results[0]["citations"] == {"enabled": True}
+    assert search_store_policies.call({"query": "what is the capital of France"})[0]["type"] == "text"
 
 
 def test_create_support_ticket():

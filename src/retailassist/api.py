@@ -16,6 +16,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from .graph import RetailAssistant, sqlite_checkpointer
+from .rag import get_policy_index
 from .store import ORDERS, PRODUCTS
 from .tickets import TicketCategory, TicketStatus, ticket_store
 from .tools import find_order
@@ -75,10 +76,18 @@ class ChatRequest(BaseModel):
     session_id: str | None = Field(None, description="Omit to start a new conversation; reuse the returned value to continue it.")
 
 
+class Citation(BaseModel):
+    number: int = Field(description="Matches the [n] markers in the reply")
+    title: str | None
+    source: str = Field(description="Policy file and section, e.g. data/policies/refund-policy.md#refunds")
+    quotes: list[str] = Field(description="The exact policy passages the reply relied on")
+
+
 class ChatResponse(BaseModel):
     session_id: str
     reply: str
     intent: str
+    citations: list[Citation]
 
 
 class TicketCreate(BaseModel):
@@ -109,7 +118,7 @@ class Ticket(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "products": len(PRODUCTS), "orders": len(ORDERS)}
+    return {"status": "ok", "products": len(PRODUCTS), "orders": len(ORDERS), "policy_chunks": len(get_policy_index())}
 
 
 @app.post("/chat")

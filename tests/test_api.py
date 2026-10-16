@@ -25,7 +25,7 @@ def api(monkeypatch):
 
 
 def test_health(api):
-    assert api.get("/health").json() == {"status": "ok", "products": 30, "orders": 100}
+    assert api.get("/health").json() == {"status": "ok", "products": 30, "orders": 100, "policy_chunks": 19}
 
 
 def test_chat_runs_tools_and_keeps_session(api, fake_api_claude):

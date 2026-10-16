@@ -23,6 +23,7 @@ build/
 # Local databases
 data/tickets.db
 data/conversations.db
+data/vectordb/
 
 # Python packaging
 *.egg-info/

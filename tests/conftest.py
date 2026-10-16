@@ -10,6 +10,7 @@ import pytest
 _tmp = tempfile.mkdtemp()
 os.environ["RETAILASSIST_TICKETS_DB"] = os.path.join(_tmp, "tickets.db")
 os.environ["RETAILASSIST_CONVERSATIONS_DB"] = os.path.join(_tmp, "conversations.db")
+os.environ["RETAILASSIST_VECTOR_DB"] = os.path.join(_tmp, "vectordb")
 
 
 class FakeClaude:
@@ -17,7 +18,8 @@ class FakeClaude:
 
     Classification requests (the ones with a structured output format) get `classification` back as JSON.
     Other requests get the next item from `replies`: a string becomes a text answer, a dict becomes a
-    tool call ({"name": ..., "input": ...}), and "REFUSE" becomes a refusal. When `replies` runs out,
+    tool call ({"name": ..., "input": ...}), a list becomes the response's content blocks as given, and
+    "REFUSE" becomes a refusal. When `replies` runs out,
     the answer is "Done.".
     """
 
@@ -41,6 +43,8 @@ class FakeClaude:
         if reply == "REFUSE":
             return httpx2.Response(200, json={**base, "stop_reason": "refusal", "content": [],
                                               "stop_details": {"type": "refusal", "category": None, "explanation": None}})
+        if isinstance(reply, list):
+            return httpx2.Response(200, json={**base, "stop_reason": "end_turn", "content": reply})
         if isinstance(reply, dict):
             block = {"type": "tool_use", "id": f"toolu_{len(self.requests)}", "name": reply["name"], "input": reply["input"]}
             return httpx2.Response(200, json={**base, "stop_reason": "tool_use", "content": [block]})

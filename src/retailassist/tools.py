@@ -1,11 +1,10 @@
 """Tools the agent can call. Each returns a string that is sent back to Claude."""
 
 import json
-from typing import Literal
-
 from anthropic import beta_tool
 
-from .store import ORDERS, POLICIES, PRODUCTS
+from .rag import get_policy_index
+from .store import ORDERS, PRODUCTS
 from .tickets import TicketCategory, ticket_store
 
 
@@ -71,14 +70,18 @@ def get_order_status(order_id: str, email: str) -> str:
 
 
 @beta_tool
-def get_store_policy(topic: Literal["refunds", "shipping"]) -> str:
-    """Get the store's official policy text. Use this to answer questions about returns, refunds,
-    exchanges, cancellations, shipping options and costs, delivery times, and tracking.
+def search_store_policies(query: str) -> list[dict]:
+    """Search the store's returns, refund, and shipping policies. Use this for questions about returns,
+    refunds, exchanges, cancellations, damaged or missing packages, shipping options and costs,
+    delivery times, and tracking. Results support citations.
 
     Args:
-        topic: "refunds" for the returns and refund policy, or "shipping" for the shipping FAQ.
+        query: What to look up, in plain words, e.g. "how long do refunds take".
     """
-    return POLICIES[topic]
+    hits = get_policy_index().search(query)
+    if not hits:
+        return [{"type": "text", "text": "No policy sections matched that search."}]
+    return [hit.to_search_result() for hit in hits]
 
 
 @beta_tool
@@ -103,4 +106,4 @@ def create_support_ticket(email: str, category: TicketCategory, summary: str, or
     return json.dumps({"ticket_id": ticket["ticket_id"], "status": ticket["status"]})
 
 
-ALL_TOOLS = [search_products, get_product_details, get_order_status, get_store_policy, create_support_ticket]
+ALL_TOOLS = [search_products, get_product_details, get_order_status, search_store_policies, create_support_ticket]
