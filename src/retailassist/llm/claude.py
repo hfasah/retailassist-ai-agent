@@ -10,6 +10,7 @@ import os
 import anthropic
 from pydantic import ValidationError
 
+from ..observability import get_observability
 from ..rag import PolicyHit
 from .base import LLMAuthError, LLMRateLimitError, LLMUnavailableError, ModelT, ModelTurn, ToolCall, ToolResult
 
@@ -38,33 +39,55 @@ class ClaudeLLM:
 
     def classify(self, system: str, prompt: str, schema: type[ModelT]) -> ModelT | None:
         """Structured output: Claude is constrained to the schema, and the SDK validates the reply against it."""
-        try:
-            with _translate_errors():
-                response = self.client.beta.messages.parse(
-                    model=self.model,
-                    max_tokens=4000,
-                    system=system,
-                    messages=[{"role": "user", "content": prompt}],
-                    output_format=schema,
-                    output_config={"effort": "low"},
-                    **FALLBACK,
-                )
-        except ValidationError as e:  # e.g. a refusal or a truncated reply that isn't valid output
-            log.warning("Claude's %s output didn't match the schema: %s", schema.__name__, e)
-            return None
-        return response.parsed_output if isinstance(response.parsed_output, schema) else None
+        with get_observability().generation("classify", model=self.model, input=prompt,
+                                            model_parameters={"effort": "low", "max_tokens": 4000}) as generation:
+            try:
+                with _translate_errors():
+                    response = self.client.beta.messages.parse(
+                        model=self.model,
+                        max_tokens=4000,
+                        system=system,
+                        messages=[{"role": "user", "content": prompt}],
+                        output_format=schema,
+                        output_config={"effort": "low"},
+                        **FALLBACK,
+                    )
+            except ValidationError as e:  # e.g. a refusal or a truncated reply that isn't valid output
+                log.warning("Claude's %s output didn't match the schema: %s", schema.__name__, e)
+                generation.record(usage=None, level="WARNING", status_message=f"Output didn't match {schema.__name__}")
+                return None
+            parsed = response.parsed_output if isinstance(response.parsed_output, schema) else None
+            generation.record(usage=usage_details(response.usage), output=parsed.model_dump() if parsed else None,
+                              level=None if parsed else "WARNING",
+                              status_message=None if parsed else f"No valid {schema.__name__}")
+            return parsed
 
     def respond(self, system: str, messages: list[dict], tools: list) -> ModelTurn:
-        with _translate_errors():
-            response = self.client.beta.messages.create(
-                model=self.model,
-                max_tokens=16000,
-                system=system,
-                tools=[tool.to_dict() for tool in tools],
-                messages=messages,
-                output_config={"effort": "medium"},
-                **FALLBACK,
-            )
+        with get_observability().generation("call_model", model=self.model, input=messages,
+                                            model_parameters={"effort": "medium", "max_tokens": 16000}) as generation:
+            with _translate_errors():
+                response = self.client.beta.messages.create(
+                    model=self.model,
+                    max_tokens=16000,
+                    system=system,
+                    tools=[tool.to_dict() for tool in tools],
+                    messages=messages,
+                    output_config={"effort": "medium"},
+                    **FALLBACK,
+                )
+            turn = self._turn(response)
+            problem = {"refusal": "Refused", "max_tokens": "Hit max tokens"}
+            # Claude's fallback may answer with a different model; price the call by the one that did.
+            generation.model = response.model or self.model
+            generation.record(usage=usage_details(response.usage),
+                              output={"stop_reason": turn.stop_reason, "text": turn.text,
+                                      "tool_calls": [{"name": c.name, "args": c.args} for c in turn.tool_calls]},
+                              level="WARNING" if turn.stop_reason in problem else None,
+                              status_message=problem.get(turn.stop_reason))
+            return turn
+
+    @staticmethod
+    def _turn(response) -> ModelTurn:
         text, citations = _text_with_citations(response.content)
         tool_calls = [ToolCall(b.id, b.name, b.input) for b in response.content if b.type == "tool_use"]
         stop = response.stop_reason if response.stop_reason in {"end_turn", "tool_use", "refusal", "max_tokens"} else "end_turn"
@@ -91,6 +114,19 @@ class ClaudeLLM:
                 block["is_error"] = True
             blocks.append(block)
         return {"role": "user", "content": blocks}
+
+
+def usage_details(usage) -> dict[str, int] | None:
+    """Token counts in Langfuse's usage format (cache reads and writes are priced separately)."""
+    if usage is None:
+        return None
+    details = {"input": usage.input_tokens or 0, "output": usage.output_tokens or 0}
+    if getattr(usage, "cache_read_input_tokens", None):
+        details["input_cache_read"] = usage.cache_read_input_tokens
+    if getattr(usage, "cache_creation_input_tokens", None):
+        details["input_cache_creation"] = usage.cache_creation_input_tokens
+    details["total"] = sum(details.values())
+    return details
 
 
 def _tool_content(output) -> str | list[dict]:

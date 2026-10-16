@@ -174,6 +174,41 @@ claude mcp add --transport http retailassist https://your-host/mcp --header "Aut
 
 When bound to `127.0.0.1` (the default), it also only accepts requests addressed to localhost, which blocks DNS rebinding attacks. To explore the tools interactively: `npx @modelcontextprotocol/inspector .venv/bin/retailassist-mcp`.
 
+## Tracing and metrics (Langfuse)
+
+Set your [Langfuse](https://langfuse.com/) keys and every chat turn, approval resume, and MCP tool call is traced:
+
+```bash
+export LANGFUSE_PUBLIC_KEY=pk-lf-...
+export LANGFUSE_SECRET_KEY=sk-lf-...
+export LANGFUSE_BASE_URL=https://us.cloud.langfuse.com   # optional; EU cloud by default, or your self-hosted URL
+```
+
+Without the keys, tracing is off and costs nothing. `/health` shows whether it's on, and `/chat` replies include a `trace_id` when it is.
+
+Each turn is one trace, grouped into a Langfuse session by conversation and tagged with the provider and model:
+
+```
+chat turn (agent)
+├── classify → classify (generation)
+├── retrieve (retriever)
+├── call_model → call_model (generation)
+├── review_tool_calls (guardrail)
+├── approval_gate (guardrail)      "Paused for approval", not an error
+├── tool_call → get_order_status (tool) ...
+└── respond
+```
+
+| | What you get |
+|---|---|
+| **Errors** | An exception marks the step where it happened, and the steps around it, `ERROR` with the message (for example, a Gemini 500 shows on the `classify` generation, its node, and the turn). Invalid tool arguments, refused order lookups, tool errors, refusals, and output that doesn't match the schema are `WARNING`. |
+| **Latency** | Every step is timed, so Langfuse shows where a slow turn spent its time. Each turn also logs one line: `chat turn session=… latency_ms=… model_calls=2 tokens_in=… tokens_out=… cost_usd=… tools=… tool_errors=… errors=…`. |
+| **Tokens** | Every model call reports input, output, and total tokens, plus cache reads and writes. Gemini's thinking tokens are counted as output, since that's how they're billed. |
+| **Cost** | Langfuse prices models it knows. For others, or to use your own rates, set `RETAILASSIST_MODEL_PRICES` to USD per million tokens, e.g. `'{"gemini-3.8-flash": {"input": 0.3, "input_cache_read": 0.03, "output": 2.5}}'`, and each call's cost is sent with it. Each turn's token and cost totals are also attached to its trace. |
+| **Privacy** | Email addresses are replaced with `[email]` before anything is sent (`RETAILASSIST_TRACE_MASK_EMAILS=false` to keep them). Verified customer details in the agent's state aren't traced. |
+
+Other settings: `RETAILASSIST_TRACING=off` turns tracing off even with keys set, and `RETAILASSIST_RELEASE` tags traces with a version. Buffered traces are sent when the API, CLI, or MCP server shuts down.
+
 ## Sample data
 
 Everything in `data/` is fictional and made up for testing:
@@ -198,6 +233,7 @@ src/retailassist/
 ├── api.py     # FastAPI app
 ├── mcp_server.py # MCP server: lookup_order, create_ticket, request_refund, get_request_status
 ├── schemas.py # shared input types (OrderId, Email, Sku, ...) and tool output models
+├── observability.py # Langfuse tracing, error capture, latency, token and cost metrics
 ├── access.py  # who may see an order: email match, lockout after misses, one customer per conversation
 ├── approvals.py # approval queue for write actions, and running them once approved
 ├── refunds.py # refund eligibility rules from the refund policy

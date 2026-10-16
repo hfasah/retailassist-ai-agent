@@ -33,7 +33,8 @@ def api(monkeypatch):
 
 def test_health(api, fake_api_model):
     assert api.get("/health").json() == {"status": "ok", "provider": fake_api_model.provider,
-                                         "model": fake_api_model.llm().model, "products": 30, "orders": 100,
+                                         "model": fake_api_model.llm().model, "tracing": False, "products": 30,
+                                         "orders": 100,
                                          "policy_chunks": 19}
 
 

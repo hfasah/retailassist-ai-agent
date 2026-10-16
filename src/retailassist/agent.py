@@ -9,6 +9,7 @@ import uuid
 
 from .graph import ApprovalPendingError, ProviderMismatchError, RetailAssistant
 from .llm import LLMAuthError, LLMError, LLMRateLimitError, LLMUnavailableError
+from .observability import get_observability
 
 
 def show(result: dict) -> None:
@@ -78,6 +79,7 @@ def main() -> None:
         show(result)
         waiting = bool(result["pending_approvals"])
 
+    get_observability().shutdown()  # send any traces still buffered
     print(f"To continue this conversation later: retailassist --session {session_id}")
 
 

@@ -14,6 +14,7 @@ approves through the API (/approvals) before it runs. This server never issues m
 """
 
 import argparse
+import functools
 import logging
 import os
 import secrets
@@ -27,6 +28,7 @@ from pydantic import BaseModel, Field
 
 from .access import OrderAccessError, authorize_order, normalize_email
 from .approvals import RefundArgs, TicketArgs, approval_store, propose_refund, propose_ticket
+from .observability import get_observability
 from .refunds import RefundReason
 from .schemas import Details, Email, Message, Order, OrderId, RefundOutcome, Sku
 from .tickets import TicketCategory
@@ -66,6 +68,19 @@ RefundResult = RefundOutcome
 
 # --- Tools ----------------------------------------------------------------------------------------
 
+def _traced(tool):
+    """Trace each MCP tool call in Langfuse (see observability.py). Refusals like "no order matches" are
+    warnings; anything else that goes wrong is an error."""
+    @functools.wraps(tool)  # keeps the signature and annotations the tool's schema is built from
+    def run(*args, **kwargs):
+        with get_observability().trace(f"mcp {tool.__name__}", session_id="mcp", input=kwargs, tags=["mcp"],
+                                       expected=(ToolError,)) as root:
+            result = tool(*args, **kwargs)
+            root.update(output=result.model_dump())
+            return result
+    return run
+
+
 def _authorize(order_id: str, email: str) -> dict:
     try:
         return authorize_order(order_id, email, clients=CLIENTS)
@@ -80,6 +95,7 @@ def _status(approval: dict) -> RequestStatus:
 
 @mcp.tool(annotations=ToolAnnotations(title="Look up an order", read_only_hint=True, destructive_hint=False,
                                       idempotent_hint=True, open_world_hint=False))
+@_traced
 def lookup_order(order_id: OrderId, email: Email) -> Order:
     """Look up a customer's order: status, items, totals, carrier and tracking number, and delivery dates.
 
@@ -90,6 +106,7 @@ def lookup_order(order_id: OrderId, email: Email) -> Order:
 
 @mcp.tool(annotations=ToolAnnotations(title="Request a support ticket", read_only_hint=False,
                                       destructive_hint=False, idempotent_hint=False, open_world_hint=False))
+@_traced
 def create_ticket(
     email: Email,
     category: Annotated[TicketCategory, Field(description="The kind of request")],
@@ -108,6 +125,7 @@ def create_ticket(
 
 @mcp.tool(annotations=ToolAnnotations(title="Request a refund", read_only_hint=False, destructive_hint=False,
                                       idempotent_hint=True, open_world_hint=False))
+@_traced
 def request_refund(
     order_id: OrderId,
     email: Email,
@@ -140,6 +158,7 @@ def request_refund(
 
 @mcp.tool(annotations=ToolAnnotations(title="Check a request", read_only_hint=True, destructive_hint=False,
                                       idempotent_hint=True, open_world_hint=False))
+@_traced
 def get_request_status(request_id: RequestId, email: Email) -> RequestStatus:
     """See whether a ticket or refund request has been approved, and what happened once it was.
 
@@ -186,14 +205,20 @@ def main() -> None:
     logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
     if args.transport == "stdio":
-        mcp.run("stdio")
+        try:
+            mcp.run("stdio")
+        finally:
+            get_observability().shutdown()  # send any traces still buffered
         return
 
     token = os.environ.get("RETAILASSIST_MCP_TOKEN")
     if not token:
         parser.error("Set RETAILASSIST_MCP_TOKEN before serving over HTTP; clients must send it as a bearer token.")
     import uvicorn
-    uvicorn.run(http_app(token, args.host), host=args.host, port=args.port)
+    try:
+        uvicorn.run(http_app(token, args.host), host=args.host, port=args.port)
+    finally:
+        get_observability().shutdown()
 
 
 if __name__ == "__main__":

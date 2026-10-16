@@ -26,6 +26,7 @@ Conversation state is saved by a LangGraph checkpointer (SQLite by default), key
 so a conversation picks up where it left off even after a restart.
 """
 
+import functools
 import json
 import operator
 import os
@@ -44,9 +45,10 @@ from pydantic import BaseModel, Field, field_validator
 from .access import OTHER_CUSTOMER, OrderAccessError, authorize_order, normalize_email
 from .approvals import ApprovalStore, approval_store, propose_refund, propose_ticket, public_view, run_action
 from .llm import LLM, ToolCall, ToolResult, get_llm
+from .observability import get_observability
 from .rag import PolicyIndex, get_policy_index
-from .store import DATA_DIR, PRODUCTS
 from .schemas import EMAIL_PATTERN, ORDER_ID_PATTERN, ApprovalOutcome, RefundOutcome, is_valid
+from .store import DATA_DIR, PRODUCTS
 from .tools import ALL_TOOLS, WRITE_TOOLS, ToolInputError, validate_args
 
 MAX_TOOL_ROUNDS = 8
@@ -221,6 +223,26 @@ def citations_from_markers(text: str, policy_index: PolicyIndex) -> tuple[str, l
 
 # --- Graph ----------------------------------------------------------------------------------------
 
+# State keys left out of traces: provider-native message history (already on each generation) and
+# verified customer details.
+_UNTRACED = {"messages", "verified_email", "verified_orders", "known_email"}
+
+
+def _traced(node, as_type: str = "chain"):
+    """Run a graph node inside a Langfuse observation named after it, with its state update as output."""
+    @functools.wraps(node)  # keeps the signature, so LangGraph still passes config to nodes that take it
+    def run(*args, **kwargs):
+        obs = get_observability()
+        with obs.observe(node.__name__, as_type=as_type) as span:
+            update = node(*args, **kwargs)
+            span.update(output={k: v for k, v in update.items() if k not in _UNTRACED})
+            errors = [r["error"] for r in update.get("call_reviews", {}).values() if "error" in r]
+            if errors:
+                obs.warn(span, "; ".join(errors))
+            return update
+    return run
+
+
 def _serialize(output):
     """Tool outputs go to the model as text: output models as JSON, policy hits as they are."""
     if isinstance(output, BaseModel):
@@ -380,26 +402,36 @@ def build_graph(llm: LLM, checkpointer: BaseCheckpointSaver | None = None, polic
         return {}
 
     def tool_call(state: ConversationState) -> dict:
+        obs = get_observability()
         results = []
         reviews = state.get("call_reviews") or {}
         for call in (ToolCall(**c) for c in state["pending_tool_calls"]):
             review = reviews.get(call.id, {})
-            tool = tools_by_name.get(call.name)
-            try:
-                if "error" in review:
-                    results.append(ToolResult(call, review["error"], is_error=True))
-                elif "result" in review:
-                    results.append(ToolResult(call, review["result"]))
-                elif "approval" in review:
-                    results.append(ToolResult(call, json.dumps(decided(approvals.get(review["approval"])))))
-                elif tool is None or call.name in WRITE_TOOLS or "args" not in review:
-                    raise ValueError(f"Unknown tool: {call.name}")
-                else:
-                    results.append(ToolResult(call, _serialize(tool.call(review["args"]))))
-            except Exception as e:  # report tool failures to the model instead of crashing the turn
-                results.append(ToolResult(call, str(e), is_error=True))
+            with obs.observe(call.name, as_type="tool", input=review.get("args", call.args)) as span:
+                result = run_tool(call, review)
+                span.update(output=result.output if isinstance(result.output, str)
+                            else [hit.chunk.id for hit in result.output])
+                if result.is_error:
+                    obs.warn(span, str(result.output))
+                obs.count_tool(result.is_error)
+            results.append(result)
         return {"messages": [llm.tool_results_message(results)], "pending_tool_calls": [], "call_reviews": {},
                 "tool_rounds": state.get("tool_rounds", 0) + 1}
+
+    def run_tool(call: ToolCall, review: dict) -> ToolResult:
+        tool = tools_by_name.get(call.name)
+        try:
+            if "error" in review:
+                return ToolResult(call, review["error"], is_error=True)
+            if "result" in review:
+                return ToolResult(call, review["result"])
+            if "approval" in review:
+                return ToolResult(call, json.dumps(decided(approvals.get(review["approval"]))))
+            if tool is None or call.name in WRITE_TOOLS or "args" not in review:
+                raise ValueError(f"Unknown tool: {call.name}")
+            return ToolResult(call, _serialize(tool.call(review["args"])))
+        except Exception as e:  # report tool failures to the model instead of crashing the turn
+            return ToolResult(call, str(e), is_error=True)
 
     def decided(approval: dict) -> dict:
         """Run an approved action, and say what happened either way."""
@@ -433,14 +465,14 @@ def build_graph(llm: LLM, checkpointer: BaseCheckpointSaver | None = None, polic
         return update
 
     builder = StateGraph(ConversationState)
-    builder.add_node("start_turn", start_turn)
-    builder.add_node("classify", classify)
-    builder.add_node("retrieve", retrieve)
-    builder.add_node("call_model", call_model)
-    builder.add_node("review_tool_calls", review_tool_calls)
-    builder.add_node("approval_gate", approval_gate)
-    builder.add_node("tool_call", tool_call)
-    builder.add_node("respond", respond)
+    builder.add_node("start_turn", _traced(start_turn))
+    builder.add_node("classify", _traced(classify))
+    builder.add_node("retrieve", _traced(retrieve, "retriever"))
+    builder.add_node("call_model", _traced(call_model))
+    builder.add_node("review_tool_calls", _traced(review_tool_calls, "guardrail"))
+    builder.add_node("approval_gate", _traced(approval_gate, "guardrail"))
+    builder.add_node("tool_call", _traced(tool_call))
+    builder.add_node("respond", _traced(respond))
     builder.add_edge(START, "start_turn")
     builder.add_edge("start_turn", "classify")
     builder.add_edge("classify", "retrieve")
@@ -481,16 +513,34 @@ class RetailAssistant:
             if waiting := self.pending_approvals(thread_id):
                 raise ApprovalPendingError(waiting)
             self.resume(thread_id)  # decided, but the earlier resume didn't finish (e.g. the model was down)
-        self.graph.invoke({"user_input": user_text}, self._config(thread_id, client))
-        return self.result(thread_id)
+        with self._trace("chat turn", thread_id, user_text) as root:
+            self.graph.invoke({"user_input": user_text}, self._config(thread_id, client))
+            return self._finish(root, thread_id)
 
     def resume(self, thread_id: str) -> dict:
         """Continue a paused conversation once its requests are decided. Returns the new reply."""
-        if self._paused(thread_id):
-            snapshot = self.graph.get_state(self._config(thread_id))
+        if not self._paused(thread_id):
+            return self.result(thread_id)
+        snapshot = self.graph.get_state(self._config(thread_id))
+        decisions = [f"{a['approval_id']}: {a['status']}" for a in self.approvals.list(thread_id=thread_id)
+                     if a["status"] != "pending"]
+        with self._trace("approval resume", thread_id, {"decisions": decisions}) as root:
             # After an interrupt, resume it; after an error partway through, pick up from the last step.
             self.graph.invoke(Command(resume=True) if snapshot.interrupts else None, self._config(thread_id))
-        return self.result(thread_id)
+            return self._finish(root, thread_id)
+
+    def _trace(self, name: str, thread_id: str, input):
+        return get_observability().trace(name, session_id=thread_id, input=input,
+                                         tags=[self.llm.name, self.llm.model],
+                                         metadata={"provider": self.llm.name, "model": self.llm.model})
+
+    def _finish(self, root, thread_id: str) -> dict:
+        result = self.result(thread_id)
+        root.update(output={"reply": result["reply"], "intent": result["intent"],
+                            "citations": [c["source"] for c in result["citations"]],
+                            "pending_approvals": [a["request_id"] for a in result["pending_approvals"]]})
+        result["trace_id"] = get_observability().trace_id()
+        return result
 
     def result(self, thread_id: str) -> dict:
         """The conversation's latest reply, or a waiting message if it's paused for approval."""

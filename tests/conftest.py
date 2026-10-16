@@ -127,7 +127,9 @@ class FakeGemini:
     @staticmethod
     def _response(parts: list[dict]) -> gtypes.GenerateContentResponse:
         return gtypes.GenerateContentResponse.model_validate(
-            {"candidates": [{"finish_reason": "STOP", "content": {"role": "model", "parts": parts}}]})
+            {"candidates": [{"finish_reason": "STOP", "content": {"role": "model", "parts": parts}}],
+             "usage_metadata": {"prompt_token_count": 100, "cached_content_token_count": 40,
+                                "candidates_token_count": 20, "thoughts_token_count": 5, "total_token_count": 125}})
 
     def llm(self) -> GeminiLLM:
         return GeminiLLM(client=self)

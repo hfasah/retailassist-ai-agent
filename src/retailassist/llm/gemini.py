@@ -16,6 +16,7 @@ from google import genai
 from google.genai import errors, types
 from pydantic import ValidationError
 
+from ..observability import get_observability
 from ..rag import PolicyHit
 from .base import (LLMAuthError, LLMRateLimitError, LLMUnavailableError, ModelT, ModelTurn, StopReason, ToolCall,
                    ToolResult)
@@ -61,38 +62,56 @@ class GeminiLLM:
 
     def classify(self, system: str, prompt: str, schema: type[ModelT]) -> ModelT | None:
         """Structured output: Gemini is constrained to the schema, and the reply is validated against it here."""
-        with _translate_errors():
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=system,
-                    response_mime_type="application/json",
-                    response_json_schema=gemini_schema(schema.model_json_schema()),
-                    thinking_config=types.ThinkingConfig(thinking_level="low"),
-                ),
-            )
-        try:
-            return schema.model_validate_json(response.text or "")
-        except ValidationError as e:
-            log.warning("Gemini's %s output didn't match the schema: %s", schema.__name__, e)
-            return None
+        with get_observability().generation("classify", model=self.model, input=prompt,
+                                            model_parameters={"thinking_level": "low"}) as generation:
+            with _translate_errors():
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system,
+                        response_mime_type="application/json",
+                        response_json_schema=gemini_schema(schema.model_json_schema()),
+                        thinking_config=types.ThinkingConfig(thinking_level="low"),
+                    ),
+                )
+            try:
+                parsed = schema.model_validate_json(response.text or "")
+            except ValidationError as e:
+                log.warning("Gemini's %s output didn't match the schema: %s", schema.__name__, e)
+                generation.record(usage=usage_details(response), output=response.text, level="WARNING",
+                                  status_message=f"Output didn't match {schema.__name__}")
+                return None
+            generation.record(usage=usage_details(response), output=parsed.model_dump())
+            return parsed
 
     def respond(self, system: str, messages: list[dict], tools: list) -> ModelTurn:
         declarations = [types.FunctionDeclaration(name=t["name"], description=t["description"],
                                                   parameters_json_schema=gemini_schema(t["input_schema"]))
                         for t in (tool.to_dict() for tool in tools)]
-        with _translate_errors():
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=[types.Content.model_validate(m) for m in messages],
-                config=types.GenerateContentConfig(
-                    system_instruction=system,
-                    tools=[types.Tool(function_declarations=declarations)],
-                    thinking_config=types.ThinkingConfig(thinking_level="medium"),
-                ),
-            )
+        with get_observability().generation("call_model", model=self.model, input=messages,
+                                            model_parameters={"thinking_level": "medium"}) as generation:
+            with _translate_errors():
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=[types.Content.model_validate(m) for m in messages],
+                    config=types.GenerateContentConfig(
+                        system_instruction=system,
+                        tools=[types.Tool(function_declarations=declarations)],
+                        thinking_config=types.ThinkingConfig(thinking_level="medium"),
+                    ),
+                )
+            turn = self._turn(response)
+            problem = {"refusal": "Refused", "error": "Malformed tool call", "max_tokens": "Hit max tokens"}
+            generation.record(usage=usage_details(response),
+                              output={"stop_reason": turn.stop_reason, "text": turn.text,
+                                      "tool_calls": [{"name": c.name, "args": c.args} for c in turn.tool_calls]},
+                              level="WARNING" if turn.stop_reason in problem else None,
+                              status_message=problem.get(turn.stop_reason))
+            return turn
 
+    @staticmethod
+    def _turn(response: types.GenerateContentResponse) -> ModelTurn:
         if (response.prompt_feedback and response.prompt_feedback.block_reason) or not response.candidates:
             return ModelTurn("refusal")
         candidate = response.candidates[0]
@@ -140,6 +159,20 @@ class GeminiLLM:
                 function_response["id"] = result.call.id
             parts.append({"function_response": function_response})
         return {"role": "user", "parts": parts}
+
+
+def usage_details(response: types.GenerateContentResponse) -> dict[str, int] | None:
+    """Token counts in Langfuse's usage format. Thinking tokens are billed as output, so they're counted there."""
+    usage = response.usage_metadata
+    if usage is None or not usage.total_token_count:
+        return None
+    cached = usage.cached_content_token_count or 0
+    details = {"input": (usage.prompt_token_count or 0) + (usage.tool_use_prompt_token_count or 0) - cached,
+               "output": (usage.candidates_token_count or 0) + (usage.thoughts_token_count or 0),
+               "total": usage.total_token_count}
+    if cached:
+        details["input_cache_read"] = cached
+    return details
 
 
 def gemini_schema(schema):

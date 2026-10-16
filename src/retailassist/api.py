@@ -9,7 +9,7 @@ import secrets
 import threading
 import uuid
 from functools import lru_cache
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
@@ -20,13 +20,20 @@ from .approvals import ApprovalStatus, approval_store, run_action
 from .graph import ApprovalPendingError, ProviderMismatchError, RetailAssistant, sqlite_checkpointer
 from .llm import LLM, LLMAuthError, LLMRateLimitError, LLMUnavailableError
 from .llm import get_llm as llm_for_provider
+from .observability import get_observability
 from .rag import get_policy_index
 from .store import ORDERS, PRODUCTS
 from .tickets import InvalidOrderError, TicketCategory, TicketStatus, open_ticket, ticket_store
 
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
-app = FastAPI(title="RetailAssist API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    get_observability().shutdown()  # send any traces still buffered
+
+
+app = FastAPI(title="RetailAssist API", version="0.1.0", lifespan=lifespan)
 
 
 # --- Dependencies ---------------------------------------------------------------------------------
@@ -118,6 +125,7 @@ class ChatResponse(BaseModel):
     pending_approvals: list[PendingRequest] = Field(
         description="Requests waiting for a team member. While any are listed, the conversation is paused; "
                     "poll GET /chat/{session_id} for the reply once they're decided.")
+    trace_id: str | None = Field(None, description="Langfuse trace for this reply, when tracing is on")
 
 
 class Approval(BaseModel):
@@ -176,7 +184,8 @@ class Ticket(BaseModel):
 
 @app.get("/health")
 def health(llm: Annotated[LLM, Depends(get_llm)]) -> dict:
-    return {"status": "ok", "provider": llm.name, "model": llm.model, "products": len(PRODUCTS), "orders": len(ORDERS),
+    return {"status": "ok", "provider": llm.name, "model": llm.model, "tracing": get_observability().enabled,
+            "products": len(PRODUCTS), "orders": len(ORDERS),
             "policy_chunks": len(get_policy_index())}
 
 
