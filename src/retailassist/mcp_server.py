@@ -6,9 +6,11 @@ Any MCP client (Claude Desktop, Claude Code, Gemini CLI, an agent framework) can
     RETAILASSIST_MCP_TOKEN=... retailassist-mcp --transport http --host 0.0.0.0 --port 8080
 
 Over HTTP every request needs "Authorization: Bearer <RETAILASSIST_MCP_TOKEN>". Customers are verified
-by order number plus the email the order was placed with, the same as the rest of RetailAssist.
-Refund requests are checked against the refund policy and become tickets for staff approval; this
-server never issues money.
+by order number plus the email the order was placed with, the same as the rest of RetailAssist, and
+repeated failures pause order lookups (access.py).
+
+Nothing here writes on its own: create_ticket and request_refund file a request that a staff member
+approves through the API (/approvals) before it runs. This server never issues money.
 """
 
 import argparse
@@ -16,16 +18,17 @@ import logging
 import os
 import secrets
 import sys
-from typing import Annotated
+from typing import Annotated, Literal
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
-from .refunds import RefundReason, check_refund
-from .store import find_order
-from .tickets import InvalidOrderError, TicketCategory, open_ticket, ticket_store
+from .access import OrderAccessError, authorize_order, normalize_email
+from .approvals import RefundArgs, TicketArgs, approval_store, propose_refund, propose_ticket
+from .refunds import RefundReason
+from .tickets import TicketCategory
 
 log = logging.getLogger("retailassist.mcp")
 
@@ -34,16 +37,19 @@ INSTRUCTIONS = """Tools for an outdoor gear store's customer support.
 Every tool that touches an order needs the order number (like ORD-5001) and the email address the order \
 was placed with; ask the customer for both. Use lookup_order to check status, items, and delivery dates. \
 Use request_refund when a customer wants their money back: it checks the refund policy and, if the \
-request qualifies, opens a refund ticket for a staff member to approve. It never refunds directly, so \
-tell the customer a team member will follow up. Use create_ticket for anything else that needs a person \
-(cancellations, address changes, missing packages)."""
+request qualifies, sends it to a staff member to approve. Use create_ticket for anything else that needs \
+a person (cancellations, address changes, missing packages); it also waits for staff approval. Both return \
+a request ID; use get_request_status to see whether it has been approved. Nothing is refunded directly."""
 
 mcp = MCPServer("retailassist", title="RetailAssist", instructions=INSTRUCTIONS, version="0.1.0")
 
 OrderId = Annotated[str, Field(description="Order number, e.g. ORD-5001", min_length=3, max_length=20)]
 Email = Annotated[str, Field(description="Email address the order was placed with",
                              pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=254)]
-NO_MATCH = "No order matches that order number and email. Ask the customer to double-check both."
+RequestId = Annotated[str, Field(description="Request ID from create_ticket or request_refund, e.g. APR-0001",
+                                  pattern=r"^APR-\d+$")]
+# Failed lookups from MCP clients are rate-limited together (access.py).
+CLIENTS = ("mcp",)
 
 
 # --- Output models (sent as structured content) ---------------------------------------------------
@@ -72,11 +78,13 @@ class Order(BaseModel):
     ship_to: dict[str, str]
 
 
-class TicketResult(BaseModel):
-    ticket_id: str
-    status: str
-    category: str
-    order_id: str | None
+class RequestStatus(BaseModel):
+    request_id: str = Field(description="Use with get_request_status")
+    title: str
+    status: Literal["pending", "approved", "rejected"] = Field(
+        description="pending until a staff member decides; approved requests have already run")
+    note: str = Field(description="Note from the staff member who decided, if any")
+    result: dict | None = Field(description="What happened once approved, e.g. the ticket ID")
 
 
 class RefundItem(BaseModel):
@@ -92,12 +100,25 @@ class RefundResult(BaseModel):
     items: list[RefundItem] = Field(description="Items included in the refund")
     estimated_refund: float = Field(description="Estimated amount in USD, after any return shipping fee")
     return_shipping_fee: float
-    ticket_id: str | None = Field(description="The refund ticket for staff approval, if one was opened")
-    already_requested: bool = Field(description="True if an open refund ticket already existed for this order")
+    ticket_id: str | None = Field(description="The refund ticket, once a request has been approved")
+    already_requested: bool = Field(description="True if a refund request for this order was already open")
+    request_id: str | None = Field(description="The request waiting for staff approval, if any")
     next_step: str
 
 
 # --- Tools ----------------------------------------------------------------------------------------
+
+def _authorize(order_id: str, email: str) -> dict:
+    try:
+        return authorize_order(order_id, email, clients=CLIENTS)
+    except OrderAccessError as e:
+        raise ToolError(str(e))
+
+
+def _status(approval: dict) -> RequestStatus:
+    return RequestStatus(request_id=approval["approval_id"], title=approval["title"], status=approval["status"],
+                         note=approval["note"], result=approval["result"])
+
 
 @mcp.tool(annotations=ToolAnnotations(title="Look up an order", read_only_hint=True, destructive_hint=False,
                                       idempotent_hint=True, open_world_hint=False))
@@ -106,30 +127,26 @@ def lookup_order(order_id: OrderId, email: Email) -> Order:
 
     The email must match the one the order was placed with.
     """
-    order = find_order(order_id, email)
-    if order is None:
-        raise ToolError(NO_MATCH)
-    return Order.model_validate(order)
+    return Order.model_validate(_authorize(order_id, email))
 
 
-@mcp.tool(annotations=ToolAnnotations(title="Create a support ticket", read_only_hint=False, destructive_hint=False,
-                                      idempotent_hint=False, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(title="Request a support ticket", read_only_hint=False,
+                                      destructive_hint=False, idempotent_hint=False, open_world_hint=False))
 def create_ticket(
     email: Email,
     category: Annotated[TicketCategory, Field(description="The kind of request")],
     message: Annotated[str, Field(description="What the customer needs, for the support team", min_length=1,
                                   max_length=4000)],
     order_id: Annotated[str | None, Field(description="Related order number, if any. Must match the email.")] = None,
-) -> TicketResult:
-    """Open a support ticket for a team member to follow up on, such as a cancellation, address change, or
-    missing package. For refunds, use request_refund instead, which checks the refund policy first."""
-    try:
-        ticket = open_ticket(email=email, category=category, message=message, order_id=order_id, source="mcp")
-    except InvalidOrderError:
-        raise ToolError(NO_MATCH)
-    log.info("Created %s (%s) via MCP", ticket["ticket_id"], category)
-    return TicketResult(ticket_id=ticket["ticket_id"], status=ticket["status"], category=ticket["category"],
-                        order_id=ticket["order_id"])
+) -> RequestStatus:
+    """Ask for a support ticket for a team member to follow up on, such as a cancellation, address change,
+    or missing package. A staff member approves it before it's opened; check with get_request_status.
+    For refunds, use request_refund instead, which checks the refund policy first."""
+    order = _authorize(order_id, email) if order_id else None
+    proposal = propose_ticket(TicketArgs(email=email, category=category, message=message, order_id=order_id), order)
+    approval = approval_store.submit(proposal, source="mcp")
+    log.info("Ticket request %s (%s) via MCP, waiting for approval", approval["approval_id"], category)
+    return _status(approval)
 
 
 @mcp.tool(annotations=ToolAnnotations(title="Request a refund", read_only_hint=False, destructive_hint=False,
@@ -142,40 +159,39 @@ def request_refund(
                                             max_length=20)] = None,
     details: Annotated[str, Field(description="Anything else the support team should know", max_length=2000)] = "",
 ) -> RefundResult:
-    """Check a refund request against the store's refund policy and, if it qualifies, open a refund ticket
-    for staff approval. Returns whether it qualifies, why, and the estimated refund amount.
+    """Check a refund request against the store's refund policy and, if it qualifies, send it to a staff
+    member to approve. Returns whether it qualifies, why, and the estimated refund amount.
 
-    This does not issue the refund. Calling it again for the same order returns the existing open ticket
-    instead of creating another one.
+    This does not issue the refund. Calling it again for the same order returns the request (or refund
+    ticket) that's already open instead of creating another one.
     """
-    order = find_order(order_id, email)
-    if order is None:
-        raise ToolError(NO_MATCH)
-
-    existing = ticket_store.find_open(order_id=order["order_id"], category="refund")
-    decision = check_refund(order, reason, skus)
-    result = RefundResult(eligible=decision.eligible, reasons=decision.reasons,
-                          items=[RefundItem(**i) for i in decision.items], estimated_refund=decision.estimated_refund,
-                          return_shipping_fee=decision.return_shipping_fee, ticket_id=None, already_requested=False,
-                          next_step=decision.next_step)
-    if existing:
-        result.ticket_id = existing["ticket_id"]
-        result.already_requested = True
-        result.next_step = f"A refund request is already open ({existing['ticket_id']}); a team member will follow up."
+    order = _authorize(order_id, email)
+    outcome, proposal = propose_refund(RefundArgs(order_id=order_id, email=email, reason=reason, skus=skus,
+                                                  details=details), order)
+    result = RefundResult(**outcome, request_id=None)
+    if proposal is None:
         return result
-    if not decision.eligible:
-        return result
-
-    lines = [f"Refund request ({reason.replace('_', ' ')}), estimated ${decision.estimated_refund:.2f}:"]
-    lines += [f"- {i['quantity']} x {i['name']} ({i['sku']}): ${i['amount']:.2f}" for i in decision.items]
-    lines += [f"- {r}" for r in decision.reasons]
-    if details:
-        lines.append(f"Customer notes: {details}")
-    ticket = open_ticket(email=email, category="refund", message="\n".join(lines), order_id=order["order_id"],
-                         source="mcp")
-    log.info("Opened refund ticket %s for %s", ticket["ticket_id"], order["order_id"])
-    result.ticket_id = ticket["ticket_id"]
+    approval = approval_store.find_pending("request_refund", order["order_id"])
+    result.already_requested = approval is not None
+    approval = approval or approval_store.submit(proposal, source="mcp")
+    result.request_id = approval["approval_id"]
+    result.next_step = (f"Waiting for a team member to approve {approval['approval_id']}. Check with "
+                        "get_request_status; once approved, the customer gets a prepaid return label by email.")
+    log.info("Refund request %s for %s via MCP", approval["approval_id"], order["order_id"])
     return result
+
+
+@mcp.tool(annotations=ToolAnnotations(title="Check a request", read_only_hint=True, destructive_hint=False,
+                                      idempotent_hint=True, open_world_hint=False))
+def get_request_status(request_id: RequestId, email: Email) -> RequestStatus:
+    """See whether a ticket or refund request has been approved, and what happened once it was.
+
+    The email must be the customer's, as given when the request was made.
+    """
+    approval = approval_store.get(int(request_id.removeprefix("APR-")))
+    if approval is None or approval["customer_email"] != normalize_email(email):
+        raise ToolError("No request matches that ID and email.")
+    return _status(approval)
 
 
 # --- Transports -----------------------------------------------------------------------------------

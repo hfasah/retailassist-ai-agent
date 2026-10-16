@@ -1,11 +1,19 @@
-"""Tools the agent can call. Each returns a string that is sent back to Claude."""
+"""Tools the agent can call. Each returns a string (or policy hits) that is sent back to the model.
+
+Read-only tools run directly. Write tools (WRITE_TOOLS) only declare what the model can ask for: the
+graph checks order access, gets a person's approval, and then runs the action (see graph.py and
+approvals.py). Any tool that takes an order_id and email is checked against access.py first.
+"""
 
 import json
 from anthropic import beta_tool
 
+from .access import NO_MATCH
+from .approvals import RefundArgs, TicketArgs
 from .rag import PolicyHit, get_policy_index
+from .refunds import RefundReason
 from .store import PRODUCTS, find_order
-from .tickets import InvalidOrderError, TicketCategory, open_ticket
+from .tickets import TicketCategory
 
 
 @beta_tool
@@ -54,7 +62,7 @@ def get_order_status(order_id: str, email: str) -> str:
     """
     order = find_order(order_id, email)
     if order is None:
-        return "No order matches that order number and email. Ask the customer to double-check both."
+        return NO_MATCH
     return json.dumps(order)
 
 
@@ -72,9 +80,10 @@ def search_store_policies(query: str) -> list[PolicyHit]:
 
 @beta_tool
 def create_support_ticket(email: str, category: TicketCategory, summary: str, order_id: str | None = None) -> str:
-    """Open a ticket for the support team. Use this when the customer wants something you can't do
-    yourself (start a return, refund, cancellation, or address change, or report a damaged or missing
-    package) and they have confirmed they want a team member to follow up.
+    """Ask for a support ticket for the team. Use this when the customer wants something you can't do
+    yourself (start a return, cancel an order, change an address, or report a damaged or missing
+    package) and they have confirmed they want a team member to follow up. For refunds, use
+    request_refund instead. A team member approves the ticket before it's opened.
 
     Args:
         email: The customer's email address.
@@ -82,11 +91,36 @@ def create_support_ticket(email: str, category: TicketCategory, summary: str, or
         summary: A short summary for the support team: what the customer wants, which items, and why.
         order_id: The related order number, if there is one. It must match the customer's email.
     """
-    try:
-        ticket = open_ticket(email=email, category=category, message=summary, order_id=order_id, source="chat")
-    except InvalidOrderError:
-        return "No order matches that order number and email, so no ticket was created. Ask the customer to double-check both."
-    return json.dumps({"ticket_id": ticket["ticket_id"], "status": ticket["status"]})
+    raise _approval_required()
 
 
-ALL_TOOLS = [search_products, get_product_details, get_order_status, search_store_policies, create_support_ticket]
+@beta_tool
+def request_refund(order_id: str, email: str, reason: RefundReason, skus: list[str] | None = None,
+                   details: str = "") -> str:
+    """Request a refund once the customer has confirmed they want one. This checks the refund policy:
+    if the request qualifies, it's sent to a team member to approve, and you get back the estimated
+    amount; if not, you get back why. It never moves money itself.
+
+    Args:
+        order_id: The order number, e.g. "ORD-5001".
+        email: The email address the order was placed with.
+        reason: Why the customer wants a refund.
+        skus: The SKUs to refund, e.g. ["SKU-1001"]. Omit for the whole order.
+        details: Anything else the support team should know.
+    """
+    raise _approval_required()
+
+
+def _approval_required() -> Exception:
+    return RuntimeError("Write tools run through the graph's approval gate, not directly.")
+
+
+ALL_TOOLS = [search_products, get_product_details, get_order_status, search_store_policies, create_support_ticket,
+             request_refund]
+
+# Write tools and how to read their arguments as an action (approvals.py).
+WRITE_TOOLS = {
+    "create_support_ticket": lambda args: TicketArgs(email=args.get("email", ""), category=args.get("category"),
+                                                     message=args.get("summary", ""), order_id=args.get("order_id")),
+    "request_refund": lambda args: RefundArgs(**args),
+}

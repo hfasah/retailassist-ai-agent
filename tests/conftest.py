@@ -11,9 +11,11 @@ from google.genai import types as gtypes
 # Keep test data out of data/. Must be set before retailassist modules are imported.
 _tmp = tempfile.mkdtemp()
 os.environ["RETAILASSIST_TICKETS_DB"] = os.path.join(_tmp, "tickets.db")
+os.environ["RETAILASSIST_APPROVALS_DB"] = os.path.join(_tmp, "approvals.db")
 os.environ["RETAILASSIST_CONVERSATIONS_DB"] = os.path.join(_tmp, "conversations.db")
 os.environ["RETAILASSIST_VECTOR_DB"] = os.path.join(_tmp, "vectordb")
 
+from retailassist.access import limiter  # noqa: E402
 from retailassist.llm.claude import ClaudeLLM  # noqa: E402
 from retailassist.llm.gemini import GeminiLLM  # noqa: E402
 
@@ -161,3 +163,11 @@ def fake_gemini():
 def fake_model(request):
     """Runs the test once against each provider."""
     return FakeGemini() if request.param == "gemini" else FakeClaude()
+
+
+@pytest.fixture(autouse=True)
+def reset_failed_lookups():
+    """Each test starts with no failed order lookups on record."""
+    limiter.reset()
+    yield
+    limiter.reset()

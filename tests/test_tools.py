@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from retailassist.store import ORDERS, PRODUCTS
 from retailassist.tools import get_order_status, get_product_details, search_products, search_store_policies
 
@@ -51,14 +53,10 @@ def test_search_store_policies():
     assert search_store_policies.call({"query": "what is the capital of France"}) == []
 
 
-def test_create_support_ticket():
-    from retailassist.tickets import ticket_store
-    from retailassist.tools import create_support_ticket
-
-    email = ORDERS["ORD-5001"]["customer"]["email"]
-    result = json.loads(create_support_ticket.call(
-        {"email": email, "category": "return", "summary": "Wants to return the hip pack", "order_id": "ORD-5001"}))
-    ticket = ticket_store.get(int(result["ticket_id"].removeprefix("TCK-")))
-    assert ticket["order_id"] == "ORD-5001" and ticket["source"] == "chat"
-    assert "no ticket was created" in create_support_ticket.call(
-        {"email": "someone@example.com", "category": "return", "summary": "x", "order_id": "ORD-5001"})
+def test_write_tools_dont_run_directly():
+    from retailassist.tools import WRITE_TOOLS, create_support_ticket, request_refund
+    assert set(WRITE_TOOLS) == {"create_support_ticket", "request_refund"}
+    with pytest.raises(RuntimeError, match="approval"):
+        create_support_ticket.call({"email": "a@example.com", "category": "other", "summary": "x"})
+    with pytest.raises(RuntimeError, match="approval"):
+        request_refund.call({"order_id": "ORD-5001", "email": "a@example.com", "reason": "defective"})

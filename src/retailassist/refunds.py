@@ -9,6 +9,7 @@ from datetime import date
 from typing import Literal
 
 from .store import PRODUCTS
+from .tickets import open_ticket, ticket_store
 
 RefundReason = Literal["changed_mind", "wrong_size", "not_as_described", "defective", "damaged_in_shipping",
                        "wrong_item_sent"]
@@ -105,3 +106,47 @@ def check_refund(order: dict, reason: RefundReason, skus: list[str] | None = Non
     return RefundDecision(True, reasons, items, round(max(refund, 0.0), 2), fee,
                           next_step="A team member will review and approve the refund; the customer gets a prepaid "
                                     "return label by email.")
+
+
+def refund_outcome(order: dict, reason: RefundReason, skus: list[str] | None = None) -> dict:
+    """What a refund request for this order would come to, without changing anything.
+
+    Includes any refund ticket already open for the order, so repeat requests don't open another.
+    """
+    decision = check_refund(order, reason, skus)
+    outcome = {"eligible": decision.eligible, "reasons": decision.reasons, "items": decision.items,
+               "estimated_refund": decision.estimated_refund, "return_shipping_fee": decision.return_shipping_fee,
+               "ticket_id": None, "already_requested": False, "next_step": decision.next_step}
+    existing = ticket_store.find_open(order_id=order["order_id"], category="refund")
+    if existing:
+        outcome.update(ticket_id=existing["ticket_id"], already_requested=True,
+                       next_step=f"A refund request is already open ({existing['ticket_id']}); a team member will follow up.")
+    return outcome
+
+
+def needs_ticket(outcome: dict) -> bool:
+    return outcome["eligible"] and not outcome["already_requested"]
+
+
+def describe_refund(reason: str, outcome: dict, details: str = "") -> str:
+    lines = [f"Refund request ({reason.replace('_', ' ')}), estimated ${outcome['estimated_refund']:.2f}:"]
+    lines += [f"- {i['quantity']} x {i['name']} ({i['sku']}): ${i['amount']:.2f}" for i in outcome["items"]]
+    lines += [f"- {r}" for r in outcome["reasons"]]
+    if details:
+        lines.append(f"Customer notes: {details}")
+    return "\n".join(lines)
+
+
+def submit_refund(order: dict, email: str, reason: RefundReason, skus: list[str] | None = None, details: str = "",
+                  *, source: str, note: str = "") -> dict:
+    """Check the policy again and, if the request still qualifies, open the refund ticket.
+
+    Only call this once a person has approved the request (see approvals.py).
+    """
+    outcome = refund_outcome(order, reason, skus)
+    if needs_ticket(outcome):
+        message = describe_refund(reason, outcome, details) + (f"\n{note}" if note else "")
+        ticket = open_ticket(email=email, category="refund", message=message, order_id=order["order_id"],
+                             source=source)
+        outcome["ticket_id"] = ticket["ticket_id"]
+    return outcome

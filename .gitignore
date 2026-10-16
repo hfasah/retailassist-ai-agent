@@ -22,6 +22,7 @@ build/
 
 # Local databases
 data/tickets.db
+data/approvals.db
 data/conversations.db
 data/vectordb/
 

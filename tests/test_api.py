@@ -156,3 +156,66 @@ def test_chat_without_claude_credentials(api, monkeypatch):
         app.dependency_overrides.clear()
     assert response.status_code == 500
     assert "ANTHROPIC_API_KEY" in response.json()["detail"]
+
+
+# --- Approvals ------------------------------------------------------------------------------------
+
+def test_chat_write_action_waits_for_staff(api, fake_api_model):
+    fake_api_model.replies = [{"name": "create_support_ticket", "input": {
+        "email": EMAIL, "category": "cancellation", "summary": "Cancel please", "order_id": "ORD-5003"}},
+        "Your cancellation ticket is open."]
+    paused = api.post("/chat", json={"message": "Cancel ORD-5003"}).json()
+    session_id = paused["session_id"]
+    [request] = paused["pending_approvals"]
+    assert "needs to approve" in paused["reply"]
+
+    # The customer can check in but can't move on; staff see the request.
+    assert api.get(f"/chat/{session_id}").json()["pending_approvals"] == [request]
+    blocked = api.post("/chat", json={"message": "hello?", "session_id": session_id})
+    assert blocked.status_code == 409 and "waiting" in blocked.json()["detail"]
+    approval_id = int(request["request_id"].removeprefix("APR-"))
+    pending = api.get("/approvals", headers=STAFF).json()
+    approval = next(a for a in pending if a["id"] == approval_id)
+    assert approval["thread_id"] == session_id and approval["details"] == "Cancel please"
+
+    decided = api.post(f"/approvals/{approval_id}", json={"decision": "approve", "note": "Caught it in time"},
+                       headers=STAFF)
+    assert decided.status_code == 200
+    body = decided.json()
+    assert body["customer_reply"] == "Your cancellation ticket is open."
+    assert body["approval"]["status"] == "approved" and body["approval"]["result"]["ticket_id"].startswith("TCK-")
+
+    after = api.get(f"/chat/{session_id}").json()
+    assert after["reply"] == "Your cancellation ticket is open." and after["pending_approvals"] == []
+    # Same decision again is a harmless retry; the opposite one is refused.
+    again = api.post(f"/approvals/{approval_id}", json={"decision": "approve"}, headers=STAFF)
+    assert again.status_code == 200 and again.json()["approval"]["result"] == body["approval"]["result"]
+    assert api.post(f"/approvals/{approval_id}", json={"decision": "reject"}, headers=STAFF).status_code == 409
+
+
+def test_staff_can_approve_mcp_requests(api):
+    from retailassist.approvals import TicketArgs, approval_store, propose_ticket
+    approval = approval_store.submit(propose_ticket(TicketArgs(email="a@example.com", category="other",
+                                                               message="Question")), source="mcp")
+    decided = api.post(f"/approvals/{approval['id']}", json={"decision": "approve"}, headers=STAFF).json()
+    assert decided["customer_reply"] is None
+    assert decided["approval"]["result"]["ticket_id"].startswith("TCK-")
+
+
+def test_approvals_need_staff_key(api):
+    assert api.get("/approvals").status_code == 401
+    assert api.get("/approvals/1").status_code == 401
+    assert api.post("/approvals/1", json={"decision": "approve"}).status_code == 401
+    assert api.post("/approvals/999999", json={"decision": "approve"}, headers=STAFF).status_code == 404
+
+
+# --- Order access ---------------------------------------------------------------------------------
+
+def test_failed_order_lookups_are_rate_limited(api):
+    from retailassist.access import MAX_FAILED_ATTEMPTS
+    for _ in range(MAX_FAILED_ATTEMPTS):
+        assert api.get("/orders/ORD-5003", params={"email": "guess@example.com"}).status_code == 404
+    locked = api.get("/orders/ORD-5003", params={"email": EMAIL})
+    assert locked.status_code == 429
+    ticket = api.post("/tickets", json={"email": EMAIL, "category": "return", "message": "x", "order_id": "ORD-5003"})
+    assert ticket.status_code == 429

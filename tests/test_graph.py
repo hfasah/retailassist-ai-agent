@@ -1,12 +1,17 @@
+import json
 import uuid
 
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 
-from retailassist.graph import (MAX_TOOL_ROUNDS, ProviderMismatchError, RetailAssistant, citations_from_markers,
-                                search_catalog, sqlite_checkpointer)
+from retailassist.access import MAX_FAILED_ATTEMPTS
+from retailassist.approvals import approval_store
+from retailassist.graph import (MAX_TOOL_ROUNDS, ApprovalPendingError, ProviderMismatchError, RetailAssistant,
+                                citations_from_markers, search_catalog, sqlite_checkpointer)
 from retailassist.rag import get_policy_index
+from retailassist.refunds import check_refund
 from retailassist.store import ORDERS
+from retailassist.tickets import ticket_store
 
 EMAIL = ORDERS["ORD-5003"]["customer"]["email"]
 
@@ -117,6 +122,189 @@ def test_conversation_cant_switch_providers(fake_claude, fake_gemini):
         RetailAssistant(fake_claude.llm(), saver).ask(thread, "hi again")
 
 
+# --- Human approval for write actions ------------------------------------------------------------
+
+def ticket_call(email=EMAIL, order_id="ORD-5003"):
+    return {"name": "create_support_ticket", "input": {"email": email, "category": "address_change",
+                                                       "summary": "Moved house", "order_id": order_id}}
+
+
+def test_ticket_waits_for_approval_then_runs(fake_model):
+    fake_model.replies = [ticket_call(), "Your ticket is open."]
+    assistant = RetailAssistant(fake_model.llm(), InMemorySaver())
+    thread = new_thread()
+    tickets_before = len(ticket_store.list())
+
+    paused = assistant.ask(thread, "Please change my address")
+    assert "team member needs to approve" in paused["reply"]
+    [request] = paused["pending_approvals"]
+    assert request["title"] == "Open an address change ticket for ORD-5003" and request["status"] == "pending"
+    # Nothing was written, the model hasn't been called again, and new messages wait.
+    assert len(ticket_store.list()) == tickets_before
+    assert len(fake_model.requests) == 1
+    with pytest.raises(ApprovalPendingError):
+        assistant.ask(thread, "hello?")
+
+    approval_id = int(request["request_id"].removeprefix("APR-"))
+    approval_store.decide(approval_id, "approved", "Done for you")
+    resumed = assistant.resume(thread)
+
+    assert resumed["reply"] == "Your ticket is open." and resumed["pending_approvals"] == []
+    output, is_error = fake_model.tool_result(1)
+    output = json.loads(output) if isinstance(output, str) else output
+    assert not is_error and output["approved"] and output["ticket_id"].startswith("TCK-")
+    assert output["note_from_team"] == "Done for you"
+    ticket = ticket_store.get(int(output["ticket_id"].removeprefix("TCK-")))
+    assert ticket["order_id"] == "ORD-5003" and request["request_id"] in ticket["message"]
+    assert approval_store.get(approval_id)["result"]["ticket_id"] == output["ticket_id"]
+    # The conversation carries on normally.
+    assert assistant.ask(thread, "thanks")["reply"] == "Done."
+
+
+def test_rejected_action_changes_nothing(fake_model):
+    fake_model.replies = [ticket_call(), "Sorry, the team declined."]
+    assistant = RetailAssistant(fake_model.llm(), InMemorySaver())
+    thread = new_thread()
+    request = assistant.ask(thread, "change my address")["pending_approvals"][0]
+    tickets_before = len(ticket_store.list())
+
+    approval_store.decide(int(request["request_id"].removeprefix("APR-")), "rejected", "Already shipped")
+    assert assistant.resume(thread)["reply"] == "Sorry, the team declined."
+    output, _ = fake_model.tool_result(1)
+    output = json.loads(output) if isinstance(output, str) else output
+    assert output["approved"] is False and output["note_from_team"] == "Already shipped"
+    assert len(ticket_store.list()) == tickets_before
+
+
+def test_paused_conversation_survives_a_restart(fake_model, tmp_path):
+    db = tmp_path / "conversations.db"
+    thread = new_thread()
+    fake_model.replies = [ticket_call(), "Approved after the restart."]
+    request = RetailAssistant(fake_model.llm(), sqlite_checkpointer(db)).ask(thread, "change address")["pending_approvals"][0]
+
+    approval_store.decide(int(request["request_id"].removeprefix("APR-")), "approved")
+    restarted = RetailAssistant(fake_model.llm(), sqlite_checkpointer(db))
+    assert restarted.resume(thread)["reply"] == "Approved after the restart."
+
+
+def test_resume_before_decision_stays_paused(fake_model):
+    fake_model.replies = [ticket_call()]
+    assistant = RetailAssistant(fake_model.llm(), InMemorySaver())
+    thread = new_thread()
+    assistant.ask(thread, "change my address")
+    assert assistant.resume(thread)["pending_approvals"]
+    assert len(fake_model.requests) == 1
+
+
+def test_eligible_refund_needs_approval(fake_model):
+    order = next(o for o in ORDERS.values() if check_refund(o, "wrong_size").eligible)
+    email = order["customer"]["email"]
+    fake_model.replies = [{"name": "request_refund", "input": {"order_id": order["order_id"], "email": email,
+                                                               "reason": "wrong_size"}}, "Refund approved."]
+    assistant = RetailAssistant(fake_model.llm(), InMemorySaver())
+    thread = new_thread()
+
+    [request] = assistant.ask(thread, "refund please")["pending_approvals"]
+    assert request["title"].startswith("Refund $") and order["order_id"] in request["title"]
+    approval = approval_store.get(int(request["request_id"].removeprefix("APR-")))
+    assert approval["action"] == "request_refund" and approval["source"] == "chat"
+    assert ticket_store.find_open(order_id=order["order_id"], category="refund") is None
+
+    approval_store.decide(approval["id"], "approved")
+    assistant.resume(thread)
+    ticket = ticket_store.find_open(order_id=order["order_id"], category="refund")
+    assert ticket and ticket["source"] == "chat"
+    ticket_store.update_status(ticket["id"], "closed")  # so other tests can request a refund for it again
+
+
+def test_ineligible_refund_skips_approval(fake_model):
+    order = next(o for o in ORDERS.values() if o["status"] == "shipped")
+    fake_model.replies = [{"name": "request_refund", "input": {"order_id": order["order_id"],
+                                                               "email": order["customer"]["email"],
+                                                               "reason": "changed_mind"}}, "Not yet, sorry."]
+    result = RetailAssistant(fake_model.llm(), InMemorySaver()).ask(new_thread(), "refund please")
+    assert result["reply"] == "Not yet, sorry." and result["pending_approvals"] == []
+    output, is_error = fake_model.tool_result(1)
+    output = json.loads(output) if isinstance(output, str) else output
+    assert not is_error and output["eligible"] is False
+
+
+# --- Order access ---------------------------------------------------------------------------------
+
+def other_order(email: str) -> dict:
+    return next(o for o in ORDERS.values() if o["customer"]["email"] != email)
+
+
+def test_write_action_for_someone_elses_order_is_refused(fake_model):
+    fake_model.replies = [ticket_call(email="someone@example.com"), "Those details don't match."]
+    assistant = RetailAssistant(fake_model.llm(), InMemorySaver())
+    thread = new_thread()
+    result = assistant.ask(thread, "cancel ORD-5003")
+    assert result["pending_approvals"] == [] and approval_store.list(thread_id=thread) == []
+    output, is_error = fake_model.tool_result(1)
+    assert is_error and "No order matches" in output
+
+
+def test_conversation_is_bound_to_the_first_verified_email(fake_model):
+    other = other_order(EMAIL)
+    fake_model.replies = [
+        {"name": "get_order_status", "input": {"order_id": "ORD-5003", "email": EMAIL}}, "Found it.",
+        # The right email for another customer's order, in the same conversation.
+        {"name": "get_order_status", "input": {"order_id": other["order_id"], "email": other["customer"]["email"]}},
+        "Can't do that.",
+        ticket_call(email=other["customer"]["email"], order_id=None), "Can't do that either.",
+    ]
+    assistant = RetailAssistant(fake_model.llm(), InMemorySaver())
+    thread = new_thread()
+    assistant.ask(thread, "where's ORD-5003?")
+    assistant.ask(thread, f"and {other['order_id']}?")
+    output, is_error = fake_model.tool_result(-1)
+    assert is_error and "different email" in output
+    assistant.ask(thread, "open a ticket for my friend")
+    output, is_error = fake_model.tool_result(-1)
+    assert is_error and "different email" in output
+
+
+def test_retrieve_refuses_orders_under_another_email(fake_model):
+    other = other_order(EMAIL)
+    assistant = RetailAssistant(fake_model.llm(), InMemorySaver())
+    thread = new_thread()
+    fake_model.classification = {"intent": "order_status", "order_id": "ORD-5003", "email": EMAIL, "product_query": None}
+    assistant.ask(thread, "where's ORD-5003?")
+    fake_model.classification = {"intent": "order_status", "order_id": other["order_id"],
+                                 "email": other["customer"]["email"], "product_query": None}
+    assistant.ask(thread, "what about this one?")
+    context = context_text(fake_model, -1, -1)
+    assert "refused" in context and other["customer"]["name"] not in context
+    assert other["order_id"] in context and '"items"' not in context
+
+
+def test_failed_lookups_lock_the_conversation(fake_model):
+    wrong = {"name": "get_order_status", "input": {"order_id": "ORD-5003", "email": "guess@example.com"}}
+    right = {"name": "get_order_status", "input": {"order_id": "ORD-5003", "email": EMAIL}}
+    fake_model.replies = [wrong] * MAX_FAILED_ATTEMPTS + [right, "Locked."]
+    RetailAssistant(fake_model.llm(), InMemorySaver()).ask(new_thread(), "guessing")
+    # Even the right email is refused once the conversation is locked.
+    output, is_error = fake_model.tool_result(-1)
+    assert is_error and "paused for 15 minutes" in output
+
+
+def test_failed_lookups_lock_the_client_across_conversations(fake_model):
+    wrong = {"name": "get_order_status", "input": {"order_id": "ORD-5003", "email": "guess@example.com"}}
+    assistant = RetailAssistant(fake_model.llm(), InMemorySaver())
+    for _ in range(MAX_FAILED_ATTEMPTS):
+        fake_model.replies = [wrong, "No."]
+        assistant.ask(new_thread(), "guessing", client="203.0.113.7")
+    fake_model.replies = [{"name": "get_order_status", "input": {"order_id": "ORD-5003", "email": EMAIL}}, "Locked."]
+    assistant.ask(new_thread(), "now the real one", client="203.0.113.7")
+    output, is_error = fake_model.tool_result(-1)
+    assert is_error and "paused" in output
+    # Another client isn't affected.
+    fake_model.replies = [{"name": "get_order_status", "input": {"order_id": "ORD-5003", "email": EMAIL}}, "Here."]
+    assistant.ask(new_thread(), "hi", client="198.51.100.2")
+    assert not fake_model.tool_result(-1)[1]
+
+
 # --- Claude: native citations ---------------------------------------------------------------------
 
 def test_claude_policy_question_retrieves_and_cites(fake_claude):
@@ -181,7 +369,7 @@ def test_gemini_tools_are_declared_with_json_schema(fake_gemini):
     declarations = fake_gemini.requests[0]["config"].tools[0].function_declarations
     names = {d.name for d in declarations}
     assert names == {"search_products", "get_product_details", "get_order_status", "search_store_policies",
-                     "create_support_ticket"}
+                     "create_support_ticket", "request_refund"}
     ticket = next(d for d in declarations if d.name == "create_support_ticket")
     assert "return" in str(ticket.parameters_json_schema)
 

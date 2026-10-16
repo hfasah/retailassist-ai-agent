@@ -5,6 +5,8 @@ import pytest
 from mcp import Client, StdioServerParameters
 from starlette.testclient import TestClient
 
+from retailassist.access import MAX_FAILED_ATTEMPTS
+from retailassist.approvals import approval_store, run_action
 from retailassist.mcp_server import http_app, mcp
 from retailassist.refunds import check_refund
 from retailassist.store import ORDERS
@@ -29,8 +31,9 @@ def ineligible_order() -> dict:
 async def test_tools_are_listed_with_annotations_and_schemas():
     async with Client(mcp) as client:
         tools = {t.name: t for t in (await client.list_tools()).tools}
-    assert set(tools) == {"lookup_order", "create_ticket", "request_refund"}
+    assert set(tools) == {"lookup_order", "create_ticket", "request_refund", "get_request_status"}
     assert tools["lookup_order"].annotations.read_only_hint is True
+    assert tools["get_request_status"].annotations.read_only_hint is True
     assert tools["create_ticket"].annotations.read_only_hint is False
     assert tools["request_refund"].annotations.idempotent_hint is True
     assert all(t.annotations.destructive_hint is False for t in tools.values())
@@ -49,23 +52,41 @@ async def test_lookup_order():
     assert wrong.is_error and "No order matches" in wrong.content[0].text
 
 
-async def test_create_ticket():
-    order = ORDERS["ORD-5003"]
+def approve(request_id: str) -> dict:
+    """What a staff member does through POST /approvals/{id}."""
+    approval = approval_store.decide(int(request_id.removeprefix("APR-")), "approved", "OK")
+    return run_action(approval)
+
+
+async def test_create_ticket_waits_for_approval():
+    from retailassist.tickets import ticket_store
+    email = ORDERS["ORD-5003"]["customer"]["email"]
     async with Client(mcp) as client:
         created = await client.call_tool("create_ticket", {
-            "email": order["customer"]["email"], "category": "address_change", "message": "Moved house",
-            "order_id": "ORD-5003"})
+            "email": email, "category": "address_change", "message": "Moved house", "order_id": "ord-5003"})
         mismatched = await client.call_tool("create_ticket", {
             "email": "someone@example.com", "category": "other", "message": "x", "order_id": "ORD-5003"})
         no_order = await client.call_tool("create_ticket", {"email": "someone@example.com", "category": "other",
                                                             "message": "General question"})
-    assert created.structured_content["ticket_id"].startswith("TCK-")
-    assert created.structured_content["order_id"] == "ORD-5003"
-    assert mismatched.is_error
-    assert not no_order.is_error and no_order.structured_content["order_id"] is None
+        request = created.structured_content
+        assert request["status"] == "pending" and request["result"] is None
+        assert request["title"] == "Open an address change ticket for ORD-5003"
+
+        ticket_id = approve(request["request_id"])["ticket_id"]
+        status = await client.call_tool("get_request_status", {"request_id": request["request_id"], "email": email})
+        snooping = await client.call_tool("get_request_status", {"request_id": request["request_id"],
+                                                                 "email": "someone@example.com"})
+
+    assert mismatched.is_error and "No order matches" in mismatched.content[0].text
+    assert not no_order.is_error and no_order.structured_content["status"] == "pending"
+    assert status.structured_content["status"] == "approved"
+    assert status.structured_content["result"]["ticket_id"] == ticket_id
+    ticket = ticket_store.get(int(ticket_id.removeprefix("TCK-")))
+    assert ticket["order_id"] == "ORD-5003" and ticket["source"] == "mcp"
+    assert snooping.is_error
 
 
-async def test_eligible_refund_opens_one_ticket():
+async def test_eligible_refund_waits_for_approval_and_opens_one_ticket():
     from retailassist.tickets import ticket_store
     order = eligible_order()
     args = {"order_id": order["order_id"], "email": order["customer"]["email"], "reason": "wrong_size",
@@ -73,14 +94,30 @@ async def test_eligible_refund_opens_one_ticket():
     async with Client(mcp) as client:
         first = (await client.call_tool("request_refund", args)).structured_content
         second = (await client.call_tool("request_refund", args)).structured_content
+        assert first["eligible"] and first["request_id"] and first["ticket_id"] is None
+        assert first["estimated_refund"] > 0 and not first["already_requested"]
+        # Asking again while it's waiting returns the same request instead of another one.
+        assert second["already_requested"] and second["request_id"] == first["request_id"]
+        assert ticket_store.find_open(order_id=order["order_id"], category="refund") is None
 
-    assert first["eligible"] and first["ticket_id"] and not first["already_requested"]
-    assert first["estimated_refund"] > 0
-    ticket = ticket_store.get(int(first["ticket_id"].removeprefix("TCK-")))
+        ticket_id = approve(first["request_id"])["ticket_id"]
+        third = (await client.call_tool("request_refund", args)).structured_content
+
+    ticket = ticket_store.get(int(ticket_id.removeprefix("TCK-")))
     assert ticket["category"] == "refund" and ticket["source"] == "mcp"
     assert "Runs small" in ticket["message"] and f"${first['estimated_refund']:.2f}" in ticket["message"]
-    # Asking again returns the same open ticket instead of creating another.
-    assert second["already_requested"] and second["ticket_id"] == first["ticket_id"]
+    # Once the refund ticket is open, asking again points to it.
+    assert third["already_requested"] and third["ticket_id"] == ticket_id and third["request_id"] is None
+    ticket_store.update_status(ticket["id"], "closed")
+
+
+async def test_failed_lookups_are_rate_limited():
+    async with Client(mcp) as client:
+        for _ in range(MAX_FAILED_ATTEMPTS):
+            await client.call_tool("lookup_order", {"order_id": "ORD-5003", "email": "guess@example.com"})
+        locked = await client.call_tool("lookup_order", {"order_id": "ORD-5003",
+                                                         "email": ORDERS["ORD-5003"]["customer"]["email"]})
+    assert locked.is_error and "paused" in locked.content[0].text
 
 
 async def test_ineligible_refund_opens_no_ticket():
@@ -111,7 +148,8 @@ def test_http_requires_bearer_token():
         assert http.post("/mcp", json=request, headers={**headers, "authorization": "Bearer nope"}).status_code == 401
         ok = http.post("/mcp", json=request, headers={**headers, "authorization": "Bearer secret"})
     assert ok.status_code == 200
-    assert {t["name"] for t in ok.json()["result"]["tools"]} == {"lookup_order", "create_ticket", "request_refund"}
+    assert {t["name"] for t in ok.json()["result"]["tools"]} == {"lookup_order", "create_ticket", "request_refund",
+                                                                 "get_request_status"}
 
 
 async def test_stdio_transport():

@@ -18,7 +18,7 @@ retailassist          # chat in the terminal (prints a session ID; resume with -
 ## HTTP API
 
 ```bash
-export RETAILASSIST_STAFF_API_KEY=some-long-secret   # needed for staff ticket endpoints
+export RETAILASSIST_STAFF_API_KEY=some-long-secret   # needed for staff ticket and approval endpoints
 uvicorn retailassist.api:app --reload
 ```
 
@@ -28,8 +28,12 @@ Interactive docs are at http://localhost:8000/docs.
 |---|---|---|
 | `GET /health` | Anyone | Health check: provider and model, plus product, order, and indexed policy-section counts |
 | `POST /chat` | Customers | Send `{"message": "..."}` and get the agent's reply plus a `session_id`. Send the `session_id` back to continue the conversation |
-| `GET /orders/{id}?email=...` | Customers | Order details. The email must match the order, otherwise 404 |
-| `POST /tickets` | Customers | Open a support ticket: `email`, `category`, `message`, and an optional `order_id` |
+| `GET /chat/{session_id}` | Customers | The conversation's latest reply, and any requests it's waiting on approval for |
+| `GET /orders/{id}?email=...` | Customers | Order details. The email must match the order, otherwise 404; too many misses give 429 |
+| `POST /tickets` | Customers | Open a support ticket yourself (a form, not the agent): `email`, `category`, `message`, and an optional `order_id` |
+| `GET /approvals?status=pending` | Staff | Write actions waiting for a decision (pending by default; also `approved`, `rejected`) |
+| `GET /approvals/{id}` | Staff | One request, with exactly what it will do |
+| `POST /approvals/{id}` | Staff | `{"decision": "approve" \| "reject", "note": "..."}`. Approved actions run straight away, and a waiting chat continues; the response includes the customer's new reply |
 | `GET /tickets?status=open` | Staff | List tickets, optionally filtered by status |
 | `GET /tickets/{id}` | Staff | One ticket |
 | `PATCH /tickets/{id}` | Staff | Set `status` to `open`, `in_progress`, or `closed` |
@@ -47,9 +51,13 @@ curl -X POST localhost:8000/chat -H 'content-type: application/json' \
 curl "localhost:8000/orders/ORD-5003?email=aisha.ferreira@example.com"
 
 curl localhost:8000/tickets -H "X-API-Key: $RETAILASSIST_STAFF_API_KEY"
+
+curl localhost:8000/approvals -H "X-API-Key: $RETAILASSIST_STAFF_API_KEY"
+curl -X POST localhost:8000/approvals/1 -H "X-API-Key: $RETAILASSIST_STAFF_API_KEY" \
+  -H 'content-type: application/json' -d '{"decision": "approve", "note": "Label sent"}'
 ```
 
-`/chat` replies also include the message's `intent` and a `citations` list (`number`, `title`, `source`, and the exact `quotes` relied on), numbered to match the `[n]` markers in the reply. Conversations and tickets are saved in SQLite files (`data/conversations.db` and `data/tickets.db` by default), so both survive restarts.
+`/chat` replies also include the message's `intent` and a `citations` list (`number`, `title`, `source`, and the exact `quotes` relied on), numbered to match the `[n]` markers in the reply. Conversations, tickets, and approvals are saved in SQLite files (`data/conversations.db`, `data/tickets.db`, and `data/approvals.db` by default), so they survive restarts.
 
 Example conversation:
 
@@ -67,9 +75,10 @@ Assistant: Yes. You have 30 days from delivery to return unused items with tags 
 The agent is a [LangGraph](https://langchain-ai.github.io/langgraph/) graph (`src/retailassist/graph.py`). Every customer message goes through these nodes:
 
 ```
-start_turn → classify → retrieve → call_model ⇄ tool_call
-                                       ↓
-                                    respond
+start_turn → classify → retrieve → call_model → review_tool_calls → approval_gate → tool_call ─┐
+                                       ↑ ↓                                                    │
+                                       │ respond                                              │
+                                       └──────────────────────────────────────────────────────┘
 ```
 
 | Node | What it does |
@@ -77,7 +86,9 @@ start_turn → classify → retrieve → call_model ⇄ tool_call
 | `classify` | The model labels the message (`product_question`, `order_status`, `policy_question`, `support_request`, or `other`) and pulls out any order number, email, and product keywords |
 | `retrieve` | Semantic search over the policy documents, plus matching products and the customer's order (no model call). Policy sections are attached as citable search results |
 | `call_model` | The model writes the answer, and can ask for tools |
-| `tool_call` | Runs the tools the model asked for and sends the results back (up to 8 rounds per message) |
+| `review_tool_calls` | Checks every tool call before anything runs: order access (below), argument validation, and turning write actions into requests for approval |
+| `approval_gate` | Pauses the conversation (a LangGraph `interrupt`) until a staff member approves or rejects each write action |
+| `tool_call` | Runs the allowed tools, and approved write actions, and sends the results back (up to 8 rounds per message) |
 | `respond` | Produces the final reply with numbered `[1]` citation markers and a list of sources, or a polite message if the model declines |
 
 **Policy search with citations.** The policy documents are split into one chunk per section, embedded with a small local model (`all-MiniLM-L6-v2`, about 80 MB, downloaded on first run), and stored in a [Chroma](https://www.trychroma.com/) vector database in `data/vectordb/`. The index rebuilds itself when the policy files change. Search matches by meaning, so "how long until my money comes back" finds the Refunds section with no shared keywords. How citations work depends on the provider (see below). Replies come back like:
@@ -86,6 +97,14 @@ start_turn → classify → retrieve → call_model ⇄ tool_call
 Refunds go back to your original payment method[1] and usually show up within 5–10 business days.
   [1] Returns & Refund Policy > Refunds (data/policies/refund-policy.md#refunds)
 ```
+
+**Human approval for write actions.** Nothing the agent does changes data until a person approves it. When the model asks to open a ticket or request a refund, `review_tool_calls` saves the request in `data/approvals.db` and `approval_gate` pauses the graph. The customer gets "Before I go ahead, a team member needs to approve this: …", and `/chat` returns the request under `pending_approvals`. New messages in that conversation get 409 until it's decided. A staff member reviews it with `GET /approvals` and decides with `POST /approvals/{id}`. The graph then resumes from its checkpoint, runs the action only if approved, and the model tells the customer the outcome, which the customer sees with `GET /chat/{session_id}`. A refund that doesn't qualify under the policy skips approval, because nothing would be written. The same queue holds write requests from the MCP server. In the terminal chat, the conversation waits and you can press Enter to check whether it's been decided.
+
+**Order access.** Every order lookup, in the agent, the API, and the MCP server, goes through `src/retailassist/access.py`:
+- The order number must match the email it was placed with. A wrong number and a wrong email get the same answer, so nobody can find out which orders exist.
+- After 5 misses in 15 minutes, order lookups are paused for that conversation and for that client IP (and for MCP clients as a group). Behind a proxy, run uvicorn with `--proxy-headers` so the limit applies to customers, not the proxy. The counter is in memory, so with several server instances each one keeps its own.
+- Once a conversation has verified one email, it can't look up or file requests for orders under another, so one chat can't be used to probe other customers' orders.
+- The agent checks access before it runs any tool that takes an order, and before it asks staff to approve anything.
 
 **Saved conversations.** A LangGraph SQLite checkpointer saves each conversation (`data/conversations.db` by default) under its session ID, so conversations survive restarts. Order numbers and emails a customer mentions are remembered for later messages in the same conversation. The conversation history is only ever appended to, never edited.
 
@@ -108,20 +127,23 @@ Each conversation remembers which provider it started with. Continuing it under 
 | `get_product_details` | Full details, price, and stock for one SKU |
 | `get_order_status` | Status, items, totals, tracking, and delivery dates for an order. Needs the order number **and** the customer's email, so customers can't look up each other's orders |
 | `search_store_policies` | Semantic search over the policies, for anything the automatic retrieval missed. Results are citable |
-| `create_support_ticket` | Opens a ticket for the support team when a customer wants a return, refund, cancellation, or address change. The agent only does this after the customer agrees |
+| `create_support_ticket` | Asks for a ticket for the support team (a return, cancellation, address change, damaged or missing package). The agent only asks after the customer agrees, and a staff member approves it before it's opened |
+| `request_refund` | Checks a refund against the refund policy. If it qualifies, a staff member approves it before the refund ticket is opened; if not, the model gets the reasons |
 
 ## MCP server
 
-`retailassist-mcp` exposes order lookup, tickets, and refund requests as [MCP](https://modelcontextprotocol.io/) tools, so any MCP client (Claude Desktop, Claude Code, Gemini CLI, agent frameworks) can use them. It shares the order data and ticket database with the rest of RetailAssist.
+`retailassist-mcp` exposes order lookup, tickets, and refund requests as [MCP](https://modelcontextprotocol.io/) tools, so any MCP client (Claude Desktop, Claude Code, Gemini CLI, agent frameworks) can use them. It shares the order data, ticket database, and approval queue with the rest of RetailAssist.
 
 | Tool | What it does | Hints |
 |---|---|---|
 | `lookup_order(order_id, email)` | Status, items, totals, tracking, and delivery dates | read-only, idempotent |
-| `create_ticket(email, category, message, order_id?)` | Opens a support ticket for a team member | writes |
-| `request_refund(order_id, email, reason, skus?, details?)` | Checks the request against the refund policy, estimates the amount, and opens a refund ticket for staff approval if it qualifies | writes, idempotent |
+| `create_ticket(email, category, message, order_id?)` | Files a ticket request; a staff member approves it before it's opened | writes |
+| `request_refund(order_id, email, reason, skus?, details?)` | Checks the request against the refund policy, estimates the amount, and, if it qualifies, files it for staff approval | writes, idempotent |
+| `get_request_status(request_id, email)` | Whether a request is still pending, approved, or rejected, the staff note, and the result (such as the ticket ID) | read-only, idempotent |
 
-- **Customers are verified the same way as everywhere else:** the order number must match the email it was placed with.
-- **`request_refund` never moves money.** It applies the refund policy in code (`src/retailassist/refunds.py`): order status, the 30-day window (7 days for shipping damage, a year for defects), final-sale items, the $7.95 return shipping fee, and tax on the refunded items. A qualifying request becomes a `refund` ticket with the breakdown for staff to approve. Calling it again for the same order returns the open ticket instead of creating a duplicate. Reasons: `changed_mind`, `wrong_size`, `not_as_described`, `defective`, `damaged_in_shipping`, `wrong_item_sent`.
+- **Customers are verified the same way as everywhere else** (see Order access above), including the lockout after repeated misses.
+- **Writes wait for a person.** `create_ticket` and `request_refund` return a `request_id` (`APR-0001`) right away; nothing is written until a staff member approves it with `POST /approvals/{id}`. `get_request_status` only answers for the email the request was made with.
+- **`request_refund` never moves money.** It applies the refund policy in code (`src/retailassist/refunds.py`): order status, the 30-day window (7 days for shipping damage, a year for defects), final-sale items, the $7.95 return shipping fee, and tax on the refunded items. Once approved, the request becomes a `refund` ticket with the breakdown. Calling it again for the same order returns the pending request or the open ticket instead of creating a duplicate. Reasons: `changed_mind`, `wrong_size`, `not_as_described`, `defective`, `damaged_in_shipping`, `wrong_item_sent`.
 - All tools return structured output with schemas, and errors come back as messages the model can act on (for example, "ask the customer to double-check both").
 
 **Local (stdio).** Add it to Claude Code:
@@ -168,7 +190,9 @@ src/retailassist/
 ├── rag.py     # policy vector index (Chroma) and semantic search
 ├── agent.py   # terminal chat
 ├── api.py     # FastAPI app
-├── mcp_server.py # MCP server: lookup_order, create_ticket, request_refund
+├── mcp_server.py # MCP server: lookup_order, create_ticket, request_refund, get_request_status
+├── access.py  # who may see an order: email match, lockout after misses, one customer per conversation
+├── approvals.py # approval queue for write actions, and running them once approved
 ├── refunds.py # refund eligibility rules from the refund policy
 ├── tools.py   # tools the agent can call
 ├── tickets.py # SQLite ticket storage
