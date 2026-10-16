@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, get_args
 
-from .store import DATA_DIR
+from .store import DATA_DIR, find_order
 
 TicketCategory = Literal[
     "return", "refund", "cancellation", "address_change", "damaged_item", "missing_package", "other"
@@ -50,6 +50,14 @@ class TicketStore:
             self._db.commit()
             return self._get(cursor.lastrowid)
 
+    def find_open(self, *, order_id: str, category: str) -> dict | None:
+        """The oldest ticket for this order and category that isn't closed yet, if any."""
+        with self._lock:
+            row = self._db.execute(
+                "SELECT * FROM tickets WHERE order_id = ? AND category = ? AND status != 'closed' ORDER BY id LIMIT 1",
+                (order_id, category)).fetchone()
+            return _to_dict(row) if row else None
+
     def get(self, ticket_id: int) -> dict | None:
         with self._lock:
             return self._get(ticket_id)
@@ -78,6 +86,22 @@ def _to_dict(row: sqlite3.Row) -> dict:
     ticket = dict(row)
     ticket["ticket_id"] = f"TCK-{ticket['id']:04d}"
     return ticket
+
+
+class InvalidOrderError(ValueError):
+    """The order number doesn't exist or doesn't belong to the given email."""
+
+
+def open_ticket(*, email: str, category: str, message: str, order_id: str | None = None, source: str,
+                store: "TicketStore | None" = None) -> dict:
+    """Create a ticket, checking that any order number belongs to the customer's email first."""
+    if order_id is not None:
+        order = find_order(order_id, email)
+        if order is None:
+            raise InvalidOrderError("No order matches that order number and email.")
+        order_id = order["order_id"]
+    return (store or ticket_store).create(customer_email=email, category=category, message=message,
+                                          order_id=order_id, source=source)
 
 
 ticket_store = TicketStore(os.environ.get("RETAILASSIST_TICKETS_DB", DATA_DIR / "tickets.db"))

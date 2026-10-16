@@ -35,8 +35,8 @@ from pydantic import BaseModel, Field
 
 from .llm import LLM, ToolCall, ToolResult, get_llm
 from .rag import PolicyIndex, get_policy_index
-from .store import DATA_DIR, PRODUCTS
-from .tools import ALL_TOOLS, find_order
+from .store import DATA_DIR, PRODUCTS, find_order
+from .tools import ALL_TOOLS
 
 MAX_TOOL_ROUNDS = 8
 

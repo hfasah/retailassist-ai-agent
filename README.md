@@ -4,7 +4,7 @@ An AI shopping and customer-support agent for retail, built on [Gemini](https://
 
 ## Getting started
 
-Requires Python 3.10+ and a [Gemini API key](https://aistudio.google.com/apikey) (or an [Anthropic API key](https://console.anthropic.com/) to use Claude).
+Requires Python 3.11+ and a [Gemini API key](https://aistudio.google.com/apikey) (or an [Anthropic API key](https://console.anthropic.com/) to use Claude).
 
 ```bash
 git clone https://github.com/hfasah/retailassist-ai-agent.git
@@ -110,6 +110,42 @@ Each conversation remembers which provider it started with. Continuing it under 
 | `search_store_policies` | Semantic search over the policies, for anything the automatic retrieval missed. Results are citable |
 | `create_support_ticket` | Opens a ticket for the support team when a customer wants a return, refund, cancellation, or address change. The agent only does this after the customer agrees |
 
+## MCP server
+
+`retailassist-mcp` exposes order lookup, tickets, and refund requests as [MCP](https://modelcontextprotocol.io/) tools, so any MCP client (Claude Desktop, Claude Code, Gemini CLI, agent frameworks) can use them. It shares the order data and ticket database with the rest of RetailAssist.
+
+| Tool | What it does | Hints |
+|---|---|---|
+| `lookup_order(order_id, email)` | Status, items, totals, tracking, and delivery dates | read-only, idempotent |
+| `create_ticket(email, category, message, order_id?)` | Opens a support ticket for a team member | writes |
+| `request_refund(order_id, email, reason, skus?, details?)` | Checks the request against the refund policy, estimates the amount, and opens a refund ticket for staff approval if it qualifies | writes, idempotent |
+
+- **Customers are verified the same way as everywhere else:** the order number must match the email it was placed with.
+- **`request_refund` never moves money.** It applies the refund policy in code (`src/retailassist/refunds.py`): order status, the 30-day window (7 days for shipping damage, a year for defects), final-sale items, the $7.95 return shipping fee, and tax on the refunded items. A qualifying request becomes a `refund` ticket with the breakdown for staff to approve. Calling it again for the same order returns the open ticket instead of creating a duplicate. Reasons: `changed_mind`, `wrong_size`, `not_as_described`, `defective`, `damaged_in_shipping`, `wrong_item_sent`.
+- All tools return structured output with schemas, and errors come back as messages the model can act on (for example, "ask the customer to double-check both").
+
+**Local (stdio).** Add it to Claude Code:
+
+```bash
+claude mcp add retailassist -- ~/retailassist-ai-agent/.venv/bin/retailassist-mcp
+```
+
+or to Claude Desktop's `claude_desktop_config.json`:
+
+```json
+{"mcpServers": {"retailassist": {"command": "/Users/you/retailassist-ai-agent/.venv/bin/retailassist-mcp"}}}
+```
+
+**Remote (streamable HTTP).** Every request needs `Authorization: Bearer $RETAILASSIST_MCP_TOKEN`; the server won't start over HTTP without it.
+
+```bash
+export RETAILASSIST_MCP_TOKEN=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
+retailassist-mcp --transport http --host 0.0.0.0 --port 8080   # serves /mcp; PORT is honoured too
+claude mcp add --transport http retailassist https://your-host/mcp --header "Authorization: Bearer $RETAILASSIST_MCP_TOKEN"
+```
+
+When bound to `127.0.0.1` (the default), it also only accepts requests addressed to localhost, which blocks DNS rebinding attacks. To explore the tools interactively: `npx @modelcontextprotocol/inspector .venv/bin/retailassist-mcp`.
+
 ## Sample data
 
 Everything in `data/` is fictional and made up for testing:
@@ -132,6 +168,8 @@ src/retailassist/
 ├── rag.py     # policy vector index (Chroma) and semantic search
 ├── agent.py   # terminal chat
 ├── api.py     # FastAPI app
+├── mcp_server.py # MCP server: lookup_order, create_ticket, request_refund
+├── refunds.py # refund eligibility rules from the refund policy
 ├── tools.py   # tools the agent can call
 ├── tickets.py # SQLite ticket storage
 └── store.py   # loads the data in data/

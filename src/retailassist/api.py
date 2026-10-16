@@ -18,9 +18,8 @@ from .graph import ProviderMismatchError, RetailAssistant, sqlite_checkpointer
 from .llm import LLM, LLMAuthError, LLMRateLimitError, LLMUnavailableError
 from .llm import get_llm as llm_for_provider
 from .rag import get_policy_index
-from .store import ORDERS, PRODUCTS
-from .tickets import TicketCategory, TicketStatus, ticket_store
-from .tools import find_order
+from .store import ORDERS, PRODUCTS, find_order
+from .tickets import InvalidOrderError, TicketCategory, TicketStatus, open_ticket, ticket_store
 
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
@@ -147,14 +146,11 @@ def get_order(order_id: str, email: Annotated[str, Query(description="Email the 
 
 @app.post("/tickets", status_code=201)
 def create_ticket(ticket: TicketCreate) -> Ticket:
-    order_id = None
-    if ticket.order_id is not None:
-        order = find_order(ticket.order_id, ticket.email)
-        if order is None:
-            raise HTTPException(422, "No order matches that order number and email.")
-        order_id = order["order_id"]
-    return Ticket(**ticket_store.create(customer_email=ticket.email, category=ticket.category,
-                                        message=ticket.message, order_id=order_id, source="api"))
+    try:
+        return Ticket(**open_ticket(email=ticket.email, category=ticket.category, message=ticket.message,
+                                    order_id=ticket.order_id, source="api"))
+    except InvalidOrderError as e:
+        raise HTTPException(422, str(e))
 
 
 @app.get("/tickets", dependencies=[Depends(require_staff_key)])

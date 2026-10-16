@@ -4,14 +4,15 @@ version = "0.1.0"
 description = "An AI shopping and customer-support agent for retail, built on Gemini or Claude."
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
-dependencies = ["google-genai>=2.30.1", "anthropic>=1.15", "fastapi>=0.115", "uvicorn[standard]>=0.30", "langgraph>=1.0", "langgraph-checkpoint-sqlite>=3.0", "chromadb>=1.0"]
+requires-python = ">=3.11"
+dependencies = ["google-genai>=2.30.1", "anthropic>=1.15", "fastapi>=0.115", "uvicorn[standard]>=0.30", "langgraph>=1.0", "langgraph-checkpoint-sqlite>=3.0", "chromadb>=1.0", "mcp>=2.3"]
 
 [project.optional-dependencies]
 dev = ["pytest", "httpx"]
 
 [project.scripts]
 retailassist = "retailassist.agent:main"
+retailassist-mcp = "retailassist.mcp_server:main"
 
 [build-system]
 requires = ["setuptools>=68"]

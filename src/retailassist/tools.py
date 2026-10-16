@@ -4,19 +4,8 @@ import json
 from anthropic import beta_tool
 
 from .rag import PolicyHit, get_policy_index
-from .store import ORDERS, PRODUCTS
-from .tickets import TicketCategory, ticket_store
-
-
-def find_order(order_id: str, email: str) -> dict | None:
-    """Return the order only if the email matches the one it was placed with.
-
-    A wrong ID and a wrong email look the same to the caller, so this doesn't reveal which orders exist.
-    """
-    order = ORDERS.get(order_id.strip().upper())
-    if order is None or order["customer"]["email"] != email.strip().lower():
-        return None
-    return order
+from .store import PRODUCTS, find_order
+from .tickets import InvalidOrderError, TicketCategory, open_ticket
 
 
 @beta_tool
@@ -93,13 +82,10 @@ def create_support_ticket(email: str, category: TicketCategory, summary: str, or
         summary: A short summary for the support team: what the customer wants, which items, and why.
         order_id: The related order number, if there is one. It must match the customer's email.
     """
-    if order_id is not None:
-        order = find_order(order_id, email)
-        if order is None:
-            return "No order matches that order number and email, so no ticket was created. Ask the customer to double-check both."
-        order_id = order["order_id"]
-    ticket = ticket_store.create(customer_email=email, category=category, message=summary,
-                                 order_id=order_id, source="chat")
+    try:
+        ticket = open_ticket(email=email, category=category, message=summary, order_id=order_id, source="chat")
+    except InvalidOrderError:
+        return "No order matches that order number and email, so no ticket was created. Ask the customer to double-check both."
     return json.dumps({"ticket_id": ticket["ticket_id"], "status": ticket["status"]})
 
 

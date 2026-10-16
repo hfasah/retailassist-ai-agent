@@ -1,0 +1,227 @@
+"""RetailAssist MCP server: order lookup, support tickets, and refund requests.
+
+Any MCP client (Claude Desktop, Claude Code, Gemini CLI, an agent framework) can use these tools.
+
+    retailassist-mcp                                    # stdio, for local MCP clients
+    RETAILASSIST_MCP_TOKEN=... retailassist-mcp --transport http --host 0.0.0.0 --port 8080
+
+Over HTTP every request needs "Authorization: Bearer <RETAILASSIST_MCP_TOKEN>". Customers are verified
+by order number plus the email the order was placed with, the same as the rest of RetailAssist.
+Refund requests are checked against the refund policy and become tickets for staff approval; this
+server never issues money.
+"""
+
+import argparse
+import logging
+import os
+import secrets
+import sys
+from typing import Annotated
+
+from mcp.server import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
+from mcp.types import ToolAnnotations
+from pydantic import BaseModel, Field
+
+from .refunds import RefundReason, check_refund
+from .store import find_order
+from .tickets import InvalidOrderError, TicketCategory, open_ticket, ticket_store
+
+log = logging.getLogger("retailassist.mcp")
+
+INSTRUCTIONS = """Tools for an outdoor gear store's customer support.
+
+Every tool that touches an order needs the order number (like ORD-5001) and the email address the order \
+was placed with; ask the customer for both. Use lookup_order to check status, items, and delivery dates. \
+Use request_refund when a customer wants their money back: it checks the refund policy and, if the \
+request qualifies, opens a refund ticket for a staff member to approve. It never refunds directly, so \
+tell the customer a team member will follow up. Use create_ticket for anything else that needs a person \
+(cancellations, address changes, missing packages)."""
+
+mcp = MCPServer("retailassist", title="RetailAssist", instructions=INSTRUCTIONS, version="0.1.0")
+
+OrderId = Annotated[str, Field(description="Order number, e.g. ORD-5001", min_length=3, max_length=20)]
+Email = Annotated[str, Field(description="Email address the order was placed with",
+                             pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=254)]
+NO_MATCH = "No order matches that order number and email. Ask the customer to double-check both."
+
+
+# --- Output models (sent as structured content) ---------------------------------------------------
+
+class OrderItem(BaseModel):
+    sku: str
+    name: str
+    quantity: int
+    unit_price: float
+
+
+class Order(BaseModel):
+    order_id: str
+    order_date: str
+    status: str
+    items: list[OrderItem]
+    subtotal: float
+    shipping_method: str
+    shipping_cost: float
+    tax: float
+    total: float
+    carrier: str | None
+    tracking_number: str | None
+    estimated_delivery: str | None
+    delivered_date: str | None
+    ship_to: dict[str, str]
+
+
+class TicketResult(BaseModel):
+    ticket_id: str
+    status: str
+    category: str
+    order_id: str | None
+
+
+class RefundItem(BaseModel):
+    sku: str
+    name: str
+    quantity: int
+    amount: float
+
+
+class RefundResult(BaseModel):
+    eligible: bool = Field(description="Whether the request qualifies under the refund policy")
+    reasons: list[str] = Field(description="Why it does or doesn't qualify, in plain words")
+    items: list[RefundItem] = Field(description="Items included in the refund")
+    estimated_refund: float = Field(description="Estimated amount in USD, after any return shipping fee")
+    return_shipping_fee: float
+    ticket_id: str | None = Field(description="The refund ticket for staff approval, if one was opened")
+    already_requested: bool = Field(description="True if an open refund ticket already existed for this order")
+    next_step: str
+
+
+# --- Tools ----------------------------------------------------------------------------------------
+
+@mcp.tool(annotations=ToolAnnotations(title="Look up an order", read_only_hint=True, destructive_hint=False,
+                                      idempotent_hint=True, open_world_hint=False))
+def lookup_order(order_id: OrderId, email: Email) -> Order:
+    """Look up a customer's order: status, items, totals, carrier and tracking number, and delivery dates.
+
+    The email must match the one the order was placed with.
+    """
+    order = find_order(order_id, email)
+    if order is None:
+        raise ToolError(NO_MATCH)
+    return Order.model_validate(order)
+
+
+@mcp.tool(annotations=ToolAnnotations(title="Create a support ticket", read_only_hint=False, destructive_hint=False,
+                                      idempotent_hint=False, open_world_hint=False))
+def create_ticket(
+    email: Email,
+    category: Annotated[TicketCategory, Field(description="The kind of request")],
+    message: Annotated[str, Field(description="What the customer needs, for the support team", min_length=1,
+                                  max_length=4000)],
+    order_id: Annotated[str | None, Field(description="Related order number, if any. Must match the email.")] = None,
+) -> TicketResult:
+    """Open a support ticket for a team member to follow up on, such as a cancellation, address change, or
+    missing package. For refunds, use request_refund instead, which checks the refund policy first."""
+    try:
+        ticket = open_ticket(email=email, category=category, message=message, order_id=order_id, source="mcp")
+    except InvalidOrderError:
+        raise ToolError(NO_MATCH)
+    log.info("Created %s (%s) via MCP", ticket["ticket_id"], category)
+    return TicketResult(ticket_id=ticket["ticket_id"], status=ticket["status"], category=ticket["category"],
+                        order_id=ticket["order_id"])
+
+
+@mcp.tool(annotations=ToolAnnotations(title="Request a refund", read_only_hint=False, destructive_hint=False,
+                                      idempotent_hint=True, open_world_hint=False))
+def request_refund(
+    order_id: OrderId,
+    email: Email,
+    reason: Annotated[RefundReason, Field(description="Why the customer wants a refund")],
+    skus: Annotated[list[str] | None, Field(description="SKUs to refund, e.g. ['SKU-1001']. Omit for the whole order.",
+                                            max_length=20)] = None,
+    details: Annotated[str, Field(description="Anything else the support team should know", max_length=2000)] = "",
+) -> RefundResult:
+    """Check a refund request against the store's refund policy and, if it qualifies, open a refund ticket
+    for staff approval. Returns whether it qualifies, why, and the estimated refund amount.
+
+    This does not issue the refund. Calling it again for the same order returns the existing open ticket
+    instead of creating another one.
+    """
+    order = find_order(order_id, email)
+    if order is None:
+        raise ToolError(NO_MATCH)
+
+    existing = ticket_store.find_open(order_id=order["order_id"], category="refund")
+    decision = check_refund(order, reason, skus)
+    result = RefundResult(eligible=decision.eligible, reasons=decision.reasons,
+                          items=[RefundItem(**i) for i in decision.items], estimated_refund=decision.estimated_refund,
+                          return_shipping_fee=decision.return_shipping_fee, ticket_id=None, already_requested=False,
+                          next_step=decision.next_step)
+    if existing:
+        result.ticket_id = existing["ticket_id"]
+        result.already_requested = True
+        result.next_step = f"A refund request is already open ({existing['ticket_id']}); a team member will follow up."
+        return result
+    if not decision.eligible:
+        return result
+
+    lines = [f"Refund request ({reason.replace('_', ' ')}), estimated ${decision.estimated_refund:.2f}:"]
+    lines += [f"- {i['quantity']} x {i['name']} ({i['sku']}): ${i['amount']:.2f}" for i in decision.items]
+    lines += [f"- {r}" for r in decision.reasons]
+    if details:
+        lines.append(f"Customer notes: {details}")
+    ticket = open_ticket(email=email, category="refund", message="\n".join(lines), order_id=order["order_id"],
+                         source="mcp")
+    log.info("Opened refund ticket %s for %s", ticket["ticket_id"], order["order_id"])
+    result.ticket_id = ticket["ticket_id"]
+    return result
+
+
+# --- Transports -----------------------------------------------------------------------------------
+
+class BearerAuth:
+    """ASGI middleware: reject HTTP requests without the right bearer token."""
+
+    def __init__(self, app, token: str):
+        self.app = app
+        self.expected = f"Bearer {token}".encode()
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            header = dict(scope["headers"]).get(b"authorization", b"")
+            if not secrets.compare_digest(header, self.expected):
+                await send({"type": "http.response.start", "status": 401,
+                            "headers": [(b"content-type", b"application/json"), (b"www-authenticate", b"Bearer")]})
+                await send({"type": "http.response.body", "body": b'{"error": "Missing or invalid bearer token."}'})
+                return
+        await self.app(scope, receive, send)
+
+
+def http_app(token: str, host: str = "127.0.0.1"):
+    """The MCP server as an ASGI app (stateless JSON over streamable HTTP), behind bearer-token auth."""
+    return BearerAuth(mcp.streamable_http_app(stateless_http=True, json_response=True, host=host), token)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="RetailAssist MCP server.")
+    parser.add_argument("--transport", choices=["stdio", "http"], default="stdio")
+    parser.add_argument("--host", default="127.0.0.1", help="HTTP only. Use 0.0.0.0 in a container.")
+    parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8001)), help="HTTP only.")
+    args = parser.parse_args()
+    # stdout carries the MCP protocol over stdio, so logs go to stderr.
+    logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+
+    if args.transport == "stdio":
+        mcp.run("stdio")
+        return
+
+    token = os.environ.get("RETAILASSIST_MCP_TOKEN")
+    if not token:
+        parser.error("Set RETAILASSIST_MCP_TOKEN before serving over HTTP; clients must send it as a bearer token.")
+    import uvicorn
+    uvicorn.run(http_app(token, args.host), host=args.host, port=args.port)
+
+
+if __name__ == "__main__":
+    main()
