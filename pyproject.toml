@@ -5,10 +5,10 @@ description = "An AI shopping and customer-support agent for retail, built on Cl
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-dependencies = ["anthropic>=1.15"]
+dependencies = ["anthropic>=1.15", "fastapi>=0.115", "uvicorn[standard]>=0.30"]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "httpx"]
 
 [project.scripts]
 retailassist = "retailassist.agent:main"

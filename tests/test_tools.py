@@ -50,3 +50,16 @@ def test_store_policy():
     assert "$75" in get_store_policy.call({"topic": "shipping"})
     schema = get_store_policy.to_dict()["input_schema"]["properties"]["topic"]
     assert schema["enum"] == ["refunds", "shipping"]
+
+
+def test_create_support_ticket():
+    from retailassist.tickets import ticket_store
+    from retailassist.tools import create_support_ticket
+
+    email = ORDERS["ORD-5001"]["customer"]["email"]
+    result = json.loads(create_support_ticket.call(
+        {"email": email, "category": "return", "summary": "Wants to return the hip pack", "order_id": "ORD-5001"}))
+    ticket = ticket_store.get(int(result["ticket_id"].removeprefix("TCK-")))
+    assert ticket["order_id"] == "ORD-5001" and ticket["source"] == "chat"
+    assert "no ticket was created" in create_support_ticket.call(
+        {"email": "someone@example.com", "category": "return", "summary": "x", "order_id": "ORD-5001"})

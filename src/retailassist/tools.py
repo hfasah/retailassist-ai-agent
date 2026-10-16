@@ -6,6 +6,18 @@ from typing import Literal
 from anthropic import beta_tool
 
 from .store import ORDERS, POLICIES, PRODUCTS
+from .tickets import TicketCategory, ticket_store
+
+
+def find_order(order_id: str, email: str) -> dict | None:
+    """Return the order only if the email matches the one it was placed with.
+
+    A wrong ID and a wrong email look the same to the caller, so this doesn't reveal which orders exist.
+    """
+    order = ORDERS.get(order_id.strip().upper())
+    if order is None or order["customer"]["email"] != email.strip().lower():
+        return None
+    return order
 
 
 @beta_tool
@@ -52,9 +64,8 @@ def get_order_status(order_id: str, email: str) -> str:
         order_id: The order number, e.g. "ORD-5001".
         email: The email address the order was placed with.
     """
-    order = ORDERS.get(order_id.strip().upper())
-    # Same message for a wrong ID or a wrong email, so the tool doesn't reveal which orders exist.
-    if order is None or order["customer"]["email"] != email.strip().lower():
+    order = find_order(order_id, email)
+    if order is None:
         return "No order matches that order number and email. Ask the customer to double-check both."
     return json.dumps(order)
 
@@ -70,4 +81,26 @@ def get_store_policy(topic: Literal["refunds", "shipping"]) -> str:
     return POLICIES[topic]
 
 
-ALL_TOOLS = [search_products, get_product_details, get_order_status, get_store_policy]
+@beta_tool
+def create_support_ticket(email: str, category: TicketCategory, summary: str, order_id: str | None = None) -> str:
+    """Open a ticket for the support team. Use this when the customer wants something you can't do
+    yourself (start a return, refund, cancellation, or address change, or report a damaged or missing
+    package) and they have confirmed they want a team member to follow up.
+
+    Args:
+        email: The customer's email address.
+        category: The kind of request.
+        summary: A short summary for the support team: what the customer wants, which items, and why.
+        order_id: The related order number, if there is one. It must match the customer's email.
+    """
+    if order_id is not None:
+        order = find_order(order_id, email)
+        if order is None:
+            return "No order matches that order number and email, so no ticket was created. Ask the customer to double-check both."
+        order_id = order["order_id"]
+    ticket = ticket_store.create(customer_email=email, category=category, message=summary,
+                                 order_id=order_id, source="chat")
+    return json.dumps({"ticket_id": ticket["ticket_id"], "status": ticket["status"]})
+
+
+ALL_TOOLS = [search_products, get_product_details, get_order_status, get_store_policy, create_support_ticket]
