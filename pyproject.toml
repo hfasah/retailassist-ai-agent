@@ -5,7 +5,7 @@ description = "An AI shopping and customer-support agent for retail, built on Cl
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-dependencies = ["anthropic>=1.15", "fastapi>=0.115", "uvicorn[standard]>=0.30"]
+dependencies = ["anthropic>=1.15", "fastapi>=0.115", "uvicorn[standard]>=0.30", "langgraph>=1.0", "langgraph-checkpoint-sqlite>=3.0"]
 
 [project.optional-dependencies]
 dev = ["pytest", "httpx"]

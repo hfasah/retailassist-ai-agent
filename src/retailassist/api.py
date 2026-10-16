@@ -8,7 +8,6 @@ import os
 import secrets
 import threading
 import uuid
-from collections import OrderedDict
 from functools import lru_cache
 from typing import Annotated
 
@@ -16,13 +15,12 @@ import anthropic
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from .agent import RetailAssistant
+from .graph import RetailAssistant, sqlite_checkpointer
 from .store import ORDERS, PRODUCTS
 from .tickets import TicketCategory, TicketStatus, ticket_store
 from .tools import find_order
 
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
-MAX_SESSIONS = 1000
 
 app = FastAPI(title="RetailAssist API", version="0.1.0")
 
@@ -41,6 +39,15 @@ def get_client() -> anthropic.Anthropic:
         raise HTTPException(500, "The server's Anthropic credentials couldn't be loaded. Set ANTHROPIC_API_KEY.")
 
 
+@lru_cache
+def _checkpointer():
+    return sqlite_checkpointer()
+
+
+def get_assistant(client: Annotated[anthropic.Anthropic, Depends(get_client)]) -> RetailAssistant:
+    return RetailAssistant(client, _checkpointer())
+
+
 def require_staff_key(x_api_key: Annotated[str | None, Header()] = None) -> None:
     """Staff-only endpoints need the X-API-Key header to match RETAILASSIST_STAFF_API_KEY."""
     expected = os.environ.get("RETAILASSIST_STAFF_API_KEY")
@@ -52,29 +59,13 @@ def require_staff_key(x_api_key: Annotated[str | None, Header()] = None) -> None
 
 # --- Chat sessions --------------------------------------------------------------------------------
 
-class _Session:
-    def __init__(self, client: anthropic.Anthropic):
-        self.assistant = RetailAssistant(client)
-        self.lock = threading.Lock()
+# Conversations are saved by the graph's checkpointer. These locks stop two messages in the same
+# conversation from running at once (striped, so memory doesn't grow with the number of sessions).
+_session_locks = [threading.Lock() for _ in range(64)]
 
 
-_sessions: OrderedDict[str, _Session] = OrderedDict()
-_sessions_lock = threading.Lock()
-
-
-def _get_session(session_id: str | None, client: anthropic.Anthropic) -> tuple[str, _Session]:
-    with _sessions_lock:
-        if session_id is not None:
-            session = _sessions.get(session_id)
-            if session is None:
-                raise HTTPException(404, "Unknown session_id. Omit it to start a new conversation.")
-            _sessions.move_to_end(session_id)
-            return session_id, session
-        session_id = uuid.uuid4().hex
-        _sessions[session_id] = _Session(client)
-        if len(_sessions) > MAX_SESSIONS:
-            _sessions.popitem(last=False)  # drop the least recently used conversation
-        return session_id, _sessions[session_id]
+def _session_lock(session_id: str) -> threading.Lock:
+    return _session_locks[hash(session_id) % len(_session_locks)]
 
 
 # --- Models ---------------------------------------------------------------------------------------
@@ -87,6 +78,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     session_id: str
     reply: str
+    intent: str
 
 
 class TicketCreate(BaseModel):
@@ -121,11 +113,15 @@ def health() -> dict:
 
 
 @app.post("/chat")
-def chat(request: ChatRequest, client: Annotated[anthropic.Anthropic, Depends(get_client)]) -> ChatResponse:
-    session_id, session = _get_session(request.session_id, client)
-    with session.lock:  # one message at a time per conversation
+def chat(request: ChatRequest, assistant: Annotated[RetailAssistant, Depends(get_assistant)]) -> ChatResponse:
+    session_id = request.session_id
+    if session_id is None:
+        session_id = uuid.uuid4().hex
+    elif not assistant.has_conversation(session_id):
+        raise HTTPException(404, "Unknown session_id. Omit it to start a new conversation.")
+    with _session_lock(session_id):  # one message at a time per conversation
         try:
-            reply = session.assistant.ask(request.message)
+            result = assistant.ask(session_id, request.message)
         except anthropic.AuthenticationError:
             raise HTTPException(500, "The server's Anthropic API key is invalid.")
         except anthropic.CredentialsError:
@@ -139,7 +135,7 @@ def chat(request: ChatRequest, client: Annotated[anthropic.Anthropic, Depends(ge
             raise HTTPException(503, "The assistant is busy. Please try again in a moment.")
         except (anthropic.APIConnectionError, anthropic.APIStatusError):
             raise HTTPException(502, "The assistant couldn't be reached. Please try again.")
-    return ChatResponse(session_id=session_id, reply=reply)
+    return ChatResponse(session_id=session_id, **result)
 
 
 @app.get("/orders/{order_id}")

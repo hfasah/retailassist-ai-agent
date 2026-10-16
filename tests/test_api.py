@@ -1,5 +1,3 @@
-import json
-
 import anthropic
 import httpx2
 import pytest
@@ -13,33 +11,10 @@ EMAIL = ORDER["customer"]["email"]
 STAFF = {"X-API-Key": "test-staff-key"}
 
 
-class FakeClaude:
-    """Fake Anthropic API: calls get_order_status on the first request, then answers in text."""
-
-    def __init__(self):
-        self.requests = []
-
-    def handler(self, request: httpx2.Request) -> httpx2.Response:
-        body = json.loads(request.content)
-        self.requests.append(body)
-        base = {"id": f"msg_{len(self.requests)}", "type": "message", "role": "assistant", "model": body["model"],
-                "stop_sequence": None, "usage": {"input_tokens": 10, "output_tokens": 5}}
-        last = body["messages"][-1]
-        if last["role"] == "user" and isinstance(last["content"], str) and "order" in last["content"]:
-            return httpx2.Response(200, json={**base, "stop_reason": "tool_use", "content": [
-                {"type": "tool_use", "id": "toolu_1", "name": "get_order_status",
-                 "input": {"order_id": "ORD-5003", "email": EMAIL}}]})
-        return httpx2.Response(200, json={**base, "stop_reason": "end_turn",
-                                         "content": [{"type": "text", "text": "Your order has shipped."}]})
-
-
 @pytest.fixture
-def fake_claude():
-    fake = FakeClaude()
-    client = anthropic.Anthropic(api_key="test", max_retries=0,
-                                 http_client=httpx2.Client(transport=httpx2.MockTransport(fake.handler)))
-    app.dependency_overrides[get_client] = lambda: client
-    yield fake
+def fake_api_claude(fake_claude):
+    app.dependency_overrides[get_client] = fake_claude.client
+    yield fake_claude
     app.dependency_overrides.clear()
 
 
@@ -53,22 +28,24 @@ def test_health(api):
     assert api.get("/health").json() == {"status": "ok", "products": 30, "orders": 100}
 
 
-def test_chat_runs_tools_and_keeps_session(api, fake_claude):
+def test_chat_runs_tools_and_keeps_session(api, fake_api_claude):
+    fake_api_claude.classification = {"intent": "order_status", "order_id": "ORD-5003", "email": EMAIL, "product_query": None}
+    fake_api_claude.replies = [{"name": "get_order_status", "input": {"order_id": "ORD-5003", "email": EMAIL}},
+                               "Your order has shipped."]
     first = api.post("/chat", json={"message": "Where is my order?"})
     assert first.status_code == 200
     assert first.json()["reply"] == "Your order has shipped."
-    # The tool result was sent back to Claude.
-    tool_result = fake_claude.requests[1]["messages"][2]["content"][0]
-    assert json.loads(tool_result["content"])["order_id"] == "ORD-5003"
+    assert first.json()["intent"] == "order_status"
 
     session_id = first.json()["session_id"]
+    fake_api_claude.classification = {"intent": "other", "order_id": None, "email": None, "product_query": None}
     second = api.post("/chat", json={"message": "Thanks!", "session_id": session_id})
     assert second.json()["session_id"] == session_id
     # The second turn carries the whole first turn: user, tool call, tool result, reply, new message.
-    assert len(fake_claude.requests[-1]["messages"]) == 5
+    assert len(fake_api_claude.requests[-1]["messages"]) == 5
 
 
-def test_chat_rejects_unknown_session_and_empty_message(api, fake_claude):
+def test_chat_rejects_unknown_session_and_empty_message(api, fake_api_claude):
     assert api.post("/chat", json={"message": "hi", "session_id": "nope"}).status_code == 404
     assert api.post("/chat", json={"message": ""}).status_code == 422
 

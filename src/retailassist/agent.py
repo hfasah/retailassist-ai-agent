@@ -1,63 +1,28 @@
-"""Interactive command-line chat with the RetailAssist agent."""
+"""Interactive command-line chat with the RetailAssist agent.
+
+    retailassist                    # start a new conversation
+    retailassist --session <id>     # pick up a saved conversation
+"""
+
+import argparse
+import uuid
 
 import anthropic
 
-from .tools import ALL_TOOLS
-
-MODEL = "claude-opus-5-5"
-
-SYSTEM_PROMPT = """You are RetailAssist, a friendly shopping and support assistant for an outdoor gear store.
-
-Help customers find products, check prices and stock, track their orders, and understand the store's \
-return and shipping policies. Use your tools rather than guessing; if a tool finds nothing, say so. Base \
-answers about returns, refunds, and shipping on the policy text, and use the order's dates and status to \
-say how the policy applies to that customer. To look up an order, ask for the order number and the \
-email it was placed with. Keep replies short and conversational.
-
-You can't start returns, issue refunds, cancel orders, or change addresses yourself. When a customer \
-wants one of those, tell them whether the policy allows it, and offer to open a support ticket so a team \
-member can follow up. Only open a ticket after the customer agrees, and give them the ticket ID."""
-
-
-class RetailAssistant:
-    def __init__(self, client: anthropic.Anthropic | None = None):
-        self.client = client or anthropic.Anthropic()
-        self.messages: list = []
-
-    def ask(self, user_text: str) -> str:
-        """Send one customer message, let Claude call tools as needed, and return its reply."""
-        self.messages.append({"role": "user", "content": user_text})
-        runner = self.client.beta.messages.tool_runner(
-            model=MODEL,
-            max_tokens=16000,
-            system=SYSTEM_PROMPT,
-            tools=ALL_TOOLS,
-            messages=self.messages,
-            output_config={"effort": "medium"},
-            # If a safety classifier declines, retry on Anthropic's recommended fallback model.
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-        )
-
-        final = None
-        for message in runner:
-            # Keep the full turn (including tool calls and results) so the history stays append-only.
-            self.messages.append(message.to_param())
-            tool_results = runner.generate_tool_call_response()
-            if tool_results is not None:
-                self.messages.append(tool_results)
-            final = message
-
-        if final is None:
-            return "(no response)"
-        if final.stop_reason == "refusal":
-            return "Sorry, I can't help with that request."
-        return "".join(block.text for block in final.content if block.type == "text")
+from .graph import RetailAssistant
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Chat with RetailAssist.")
+    parser.add_argument("--session", help="ID of a saved conversation to continue")
+    args = parser.parse_args()
+
     assistant = RetailAssistant()
-    print("RetailAssist is ready. Type 'quit' to exit.\n")
+    if args.session and not assistant.has_conversation(args.session):
+        parser.error(f"No saved conversation with ID {args.session}.")
+    session_id = args.session or uuid.uuid4().hex
+    print(f"RetailAssist is ready (session {session_id}). Type 'quit' to exit.\n")
+
     while True:
         try:
             user_text = input("You: ").strip()
@@ -69,9 +34,15 @@ def main() -> None:
         if not user_text:
             continue
         try:
-            reply = assistant.ask(user_text)
-        except anthropic.AuthenticationError:
+            reply = assistant.ask(session_id, user_text)["reply"]
+        except (anthropic.AuthenticationError, anthropic.CredentialsError):
             print("Error: invalid or missing API key. Set ANTHROPIC_API_KEY in your environment.")
+            break
+        except TypeError as e:
+            # The SDK raises TypeError before sending anything when no credentials are configured.
+            if "authentication method" not in str(e):
+                raise
+            print("Error: no API key found. Set ANTHROPIC_API_KEY in your environment.")
             break
         except anthropic.RateLimitError:
             print("Assistant: I'm getting a lot of requests right now. Please try again in a moment.\n")
@@ -83,6 +54,8 @@ def main() -> None:
             print(f"Assistant: Something went wrong (HTTP {e.status_code}). Please try again.\n")
             continue
         print(f"Assistant: {reply}\n")
+
+    print(f"To continue this conversation later: retailassist --session {session_id}")
 
 
 if __name__ == "__main__":

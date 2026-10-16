@@ -20,8 +20,9 @@ build/
 .vscode/
 .idea/
 
-# Local ticket database
+# Local databases
 data/tickets.db
+data/conversations.db
 
 # Python packaging
 *.egg-info/
