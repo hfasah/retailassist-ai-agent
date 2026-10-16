@@ -23,3 +23,7 @@ cp .env.example .env   # then fill in your keys
 ## Status
 
 Early setup — nothing implemented yet.
+
+## License
+
+[MIT](LICENSE)
